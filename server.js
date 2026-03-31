@@ -62,6 +62,10 @@ app.get('/overlay/:userId', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'overlay.html'));
 });
 
+// Webhook routes
+const { setupWebhookRoute } = require('./lib/kickWebhook');
+setupWebhookRoute(app);
+
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Server listening on port ${PORT}`);

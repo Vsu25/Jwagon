@@ -29,12 +29,12 @@
   - [x] Create `public/dashboard.html`
 
 ## Phase 3: Kick Webhooks + Undo + Alerts
-- [ ] **Step 8: Kick webhook handler**
-  - [ ] Create `lib/kickWebhook.js`
-- [ ] **Step 9: Undo engine**
-  - [ ] Create `lib/undoEngine.js`
-- [ ] **Step 10: Alert queue**
-  - [ ] Create `lib/alertQueue.js`
+- [x] **Step 8: Kick webhook handler**
+  - [x] Create `lib/kickWebhook.js`
+- [x] **Step 9: Undo engine**
+  - [x] Create `lib/undoEngine.js`
+- [x] **Step 10: Alert queue**
+  - [x] Create `lib/alertQueue.js`
 
 ## Phase 4: Countdown + Goals
 - [ ] **Step 11: Countdown timer**
