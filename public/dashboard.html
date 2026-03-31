@@ -57,49 +57,197 @@
       align-items: center;
       padding: 0 20px;
     }
-    .accent {
-      color: #53FC18;
+    .accent { color: #53FC18; }
+    
+    .toggle-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 15px;
+      padding: 10px;
+      background-color: #222;
+      border-radius: 6px;
     }
+    
+    .status-dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #ff3333;
+      margin-left: 10px;
+    }
+    .status-dot.online { background-color: #53FC18; }
+    
+    select {
+      background-color: #333;
+      color: white;
+      border: 1px solid #444;
+      padding: 5px;
+      border-radius: 4px;
+    }
+    
+    button {
+      background-color: #333;
+      color: white;
+      border: 1px solid #555;
+      padding: 8px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover { background-color: #444; }
   </style>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <div class="topbar">
-    <div class="brand">Stream<span class="accent">Deck</span></div>
+    <div class="brand">Stream<span class="accent">Deck</span> Dashboard</div>
+    
+    <!-- Mod Streamer Selector (Hidden by default) -->
+    <div id="mod-controls" style="display:none; margin-left: 20px; flex: 1;">
+      <label>Managing:</label>
+      <select id="streamer-select">
+        <option value="">Select Streamer</option>
+      </select>
+    </div>
+
     <div class="user-info">
-      <!-- To be loaded dynamically -->
-      <span id="username">Loading...</span>
-      <form action="/api/auth/logout" method="POST" style="display:inline; margin-left: 15px;">
-        <button type="submit" style="background:transparent; border:1px solid #555; color:white; padding:5px 10px; cursor:pointer; border-radius:4px;">Logout</button>
+      Connection: <span id="conn-status" class="status-dot"></span>
+      <span id="role-badge" style="margin: 0 15px; background: #333; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;"></span>
+      <form action="/api/auth/logout" method="POST" style="display:inline;">
+        <button type="submit">Logout</button>
       </form>
     </div>
   </div>
   
   <div class="main-content">
     <div class="sidebar">
-      <h3>Event Log</h3>
+      <h3>Event Log & Alerts</h3>
       <div id="events-container" style="color:#aaa; font-size:0.9rem;">
-        No events yet.
+        Waiting for events...
       </div>
     </div>
     <div class="center-canvas">
       <!-- 16:9 aspect ratio simulated container for overlay preview -->
       <div style="width: 1280px; height: 720px; background-color: #000; border: 1px dashed #333; position:relative; transform: scale(0.6);">
          <div style="position: absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#444;">16:9 Preview Canvas</div>
+         <a href="#" id="preview-link" target="_blank" style="position:absolute; bottom:10px; right:10px; color:#53FC18; text-decoration:none;">Open Overlay -></a>
       </div>
     </div>
     <div class="right-panel">
-      <h3>Controls</h3>
-      <p>Overlay management and toggles go here.</p>
+      <h3>Overlay Elements</h3>
+      <div class="toggle-row">
+        <span>Alert Box</span>
+        <button onclick="toggleElement('alertBox')">Toggle</button>
+      </div>
+      <div class="toggle-row">
+        <span>Countdown</span>
+        <button onclick="toggleElement('countdown')">Toggle</button>
+      </div>
+      <div class="toggle-row">
+        <span>Goal Bar</span>
+        <button onclick="toggleElement('goalBar')">Toggle</button>
+      </div>
     </div>
   </div>
   
   <div class="bottom-dock">
-    <div>Presets | Toggles | Progress mini-bar</div>
+    <div style="flex:1;">
+      <label>Preset:</label>
+      <select id="preset-switcher">
+        <option>Just Chatting</option>
+        <option>Gaming</option>
+      </select>
+    </div>
+    <div style="flex:1; text-align:center;">
+      <button onclick="mockKickEvent()">🔌 Mock Kick Event</button>
+    </div>
+    <div style="flex:1; text-align:right;">
+      Undo: <button disabled>No Actions</button>
+    </div>
   </div>
 
   <script>
-    // Placeholder fetching of user data or websocket connection logic
+    let ws;
+    let currentUser;
+    let targetUserId;
+
+    async function init() {
+      try {
+        const res = await fetch('/api/me');
+        if (!res.ok) throw new Error('Not authenticated');
+        currentUser = await res.json();
+        
+        targetUserId = currentUser.userId;
+        
+        // Setup Mod tools if mod
+        document.getElementById('role-badge').innerText = currentUser.role.toUpperCase();
+        if (currentUser.role === 'mod') {
+          document.getElementById('mod-controls').style.display = 'block';
+          // Would fetch assigned streamers here
+        }
+        
+        document.getElementById('preview-link').href = `/overlay/${targetUserId}`;
+        connectWs();
+      } catch (e) {
+        window.location.href = '/login';
+      }
+    }
+
+    function connectWs() {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.host}/ws?userId=${currentUser.userId}&role=${currentUser.role}`;
+      
+      ws = new WebSocket(wsUrl);
+      
+      ws.onopen = () => {
+        document.getElementById('conn-status').classList.add('online');
+      };
+      
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        console.log('WS msg:', msg);
+        if (msg.type === 'state:update') {
+          logEvent('State updated: ' + msg.data.path);
+        } else if (msg.type === 'coop:notification') {
+          logEvent('Co-op Notif: ' + msg.data.message);
+        }
+      };
+      
+      ws.onclose = () => {
+        document.getElementById('conn-status').classList.remove('online');
+        setTimeout(connectWs, 2000);
+      };
+    }
+
+    function toggleElement(elementName) {
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      // In a full implementation, we would toggle state visibility via the ws connection.
+      ws.send(JSON.stringify({
+        type: 'ping',
+        payload: { action: 'toggle', element: elementName }
+      }));
+      logEvent(`Toggled element: ${elementName}`);
+    }
+
+    function mockKickEvent() {
+      logEvent('Fired Mock Event: New Sub');
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        // Send a ping message simulating a kick event to trigger server-side handlers
+        ws.send(JSON.stringify({ type: 'ping' }));
+      }
+    }
+    
+    function logEvent(text) {
+      const cont = document.getElementById('events-container');
+      if (cont.innerText === 'Waiting for events...') cont.innerHTML = '';
+      const el = document.createElement('div');
+      el.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
+      el.style.borderBottom = '1px solid #333';
+      el.style.padding = '5px 0';
+      cont.prepend(el);
+    }
+
+    window.onload = init;
   </script>
 </body>
 </html>

@@ -45,6 +45,14 @@ function requireAuth(req, res, next) {
   next();
 }
 
+app.get('/api/me', requireAuth, (req, res) => {
+  res.json({
+    userId: req.session.userId,
+    kickUserId: req.session.kickUserId,
+    role: req.session.role
+  });
+});
+
 app.get('/dashboard', requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });

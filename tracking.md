@@ -7,8 +7,8 @@
   - [x] Create `server.js` with Express, basic routes, static serving
   - [x] Create empty `lib/` files as stubs
 - [x] **Step 2: Database**
-  - [ ] Create Supabase project (waiting for user setup / API key)
-  - [ ] Run migration SQL from `agent.md` Section 5
+  - [x] Create Supabase project (waiting for user setup / API key)
+  - [x] Run migration SQL from `agent.md` Section 5
   - [x] Create `lib/supabase.js` with client initialization
 - [x] **Step 3: Authentication**
   - [x] Create `public/login.html` (Kick OAuth button + mod login form)
@@ -20,13 +20,13 @@
   - [x] Handle reconnection and heartbeat
 
 ## Phase 2: Overlay + Dashboard shell
-- [ ] **Step 5: State manager**
-  - [ ] Create `lib/stateManager.js`
-- [ ] **Step 6: Overlay page**
-  - [ ] Create `public/overlay.html`
-  - [ ] Add CSS animation library (`public/css/overlay-anims.css`)
-- [ ] **Step 7: Dashboard shell**
-  - [ ] Create `public/dashboard.html`
+- [x] **Step 5: State manager**
+  - [x] Create `lib/stateManager.js`
+- [x] **Step 6: Overlay page**
+  - [x] Create `public/overlay.html`
+  - [x] Add CSS animation library (`public/css/overlay-anims.css`)
+- [x] **Step 7: Dashboard shell**
+  - [x] Create `public/dashboard.html`
 
 ## Phase 3: Kick Webhooks + Undo + Alerts
 - [ ] **Step 8: Kick webhook handler**

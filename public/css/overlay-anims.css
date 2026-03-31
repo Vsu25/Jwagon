@@ -1,0 +1,67 @@
+/* CSS Animation Library for StreamDeck Overlay (GPU Optimized) */
+
+/* All 8 animation presets */
+.anim-fade { animation: fade 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+.anim-fade-out { animation: fadeOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
+
+.anim-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes slideUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+.anim-slide-up-out { animation: slideUpOut 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes slideUpOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-15px); } }
+
+.anim-slide-left { animation: slideLeft 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes slideLeft { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+
+.anim-scale-pop { animation: scalePop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes scalePop { 
+  0% { opacity: 0; transform: scale(0.7); } 
+  70% { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.anim-scale-pop-out { animation: scalePopOut 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes scalePopOut { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(0.9); } }
+
+.anim-bounce-drop { animation: bounceDrop 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes bounceDrop { 
+  0% { opacity: 0; transform: translateY(-40px); } 
+  60% { opacity: 1; transform: translateY(10px); } 
+  80% { transform: translateY(-5px); } 
+  100% { transform: translateY(0); }
+}
+.anim-bounce-drop-out { animation: bounceDropOut 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes bounceDropOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(20px); } }
+
+.anim-blur-in { animation: blurIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes blurIn { from { opacity: 0; filter: blur(8px); } to { opacity: 1; filter: blur(0); } }
+.anim-blur-out { animation: blurOut 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+@keyframes blurOut { from { opacity: 1; filter: blur(0); } to { opacity: 0; filter: blur(8px); } }
+
+.anim-typewriter { overflow: hidden; white-space: nowrap; animation: typewriter 1s steps(40, end) forwards; }
+@keyframes typewriter { from { clip-path: polygon(0 0, 0 0, 0 100%, 0% 100%); } to { clip-path: polygon(0 0, 100% 0, 100% 100%, 0% 100%); } }
+
+.anim-glitch { animation: glitch 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite; }
+@keyframes glitch {
+  0% { transform: translate(0) }
+  20% { transform: translate(-2px, 2px) }
+  40% { transform: translate(-2px, -2px) }
+  60% { transform: translate(2px, 2px) }
+  80% { transform: translate(2px, -2px) }
+  100% { transform: translate(0) }
+}
+
+.anim-celebrate { animation: celebrate 0.8s ease-in-out forwards; }
+@keyframes celebrate {
+  0% { opacity: 0; transform: scale(0.5) rotate(-10deg); }
+  50% { opacity: 1; transform: scale(1.2) rotate(10deg); }
+  75% { transform: scale(0.9) rotate(-5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.gpu-accel {
+    will-change: transform, opacity;
+}
+.idle {
+    will-change: auto;
+}

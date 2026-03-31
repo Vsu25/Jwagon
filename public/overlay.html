@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>StreamDeck Overlay</title>
+  <link rel="stylesheet" href="/css/overlay-anims.css">
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      font-family: 'Inter', sans-serif;
+    }
+    #overlay-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .overlay-element {
+      position: absolute;
+      /* Default entry animation class mapped dynamically later */
+    }
+  </style>
+</head>
+<body>
+  <div id="overlay-container"></div>
+
+  <script>
+    const pathParts = window.location.pathname.split('/');
+    const userId = pathParts[pathParts.length - 1];
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsUrl = `${protocol}//${window.location.host}/ws?userId=${userId}&role=viewer`;
+    let ws;
+    
+    let state = { elements: {} };
+    const container = document.getElementById('overlay-container');
+
+    function connectWs() {
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => console.log('Overlay WS Connected');
+      ws.onmessage = (event) => {
+        const msg = JSON.parse(event.data);
+        handleMessage(msg);
+      };
+      ws.onclose = () => {
+        console.log('WS Disconnected. Reconnecting in 2s...');
+        setTimeout(connectWs, 2000);
+      };
+    }
+    
+    function deepMerge(target, path, value) {
+      const keys = path.split('.');
+      let current = target;
+      for (let i = 0; i < keys.length - 1; i++) {
+        if (!current[keys[i]]) current[keys[i]] = {};
+        current = current[keys[i]];
+      }
+      current[keys[keys.length - 1]] = value;
+    }
+
+    function handleMessage(msg) {
+      if (msg.type === 'state:update') {
+        const { path, value } = msg.data;
+        deepMerge(state, path, value);
+        renderOverlay();
+      } else if (msg.type === 'state:batch_update') {
+        msg.data.updates.forEach(u => deepMerge(state, u.path, u.value));
+        renderOverlay();
+      } else if (msg.type === 'alert:fire') {
+        renderAlert(msg.data);
+      } else if (msg.type === 'coop:notification') {
+        renderCoopNotification(msg.data);
+      }
+    }
+
+    function renderOverlay() {
+      // Basic element renderer mechanism
+      // Will diff the state.elements object and update DOM Nodes
+      console.log('State updated, rendering...', state);
+    }
+    
+    function renderAlert(alertData) {
+      // Stub for alert rendering
+      console.log('Alert fired:', alertData);
+    }
+    
+    function renderCoopNotification(notifData) {
+      // Stub for co-op notification
+      console.log('Coop Notification:', notifData);
+    }
+
+    connectWs();
+  </script>
+</body>
+</html>
