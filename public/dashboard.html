@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>StreamDeck Dashboard</title>
+  <style>
+    body {
+      background-color: #0D0D0D;
+      color: white;
+      font-family: 'Inter', sans-serif;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .topbar {
+      height: 60px;
+      background-color: #1a1a1a;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      border-bottom: 1px solid #333;
+    }
+    .main-content {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    .sidebar {
+      width: 280px;
+      background-color: #1a1a1a;
+      border-right: 1px solid #333;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .center-canvas {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #111;
+    }
+    .right-panel {
+      width: 300px;
+      background-color: #1a1a1a;
+      border-left: 1px solid #333;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .bottom-dock {
+      height: 80px;
+      background-color: #1a1a1a;
+      border-top: 1px solid #333;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+    }
+    .accent {
+      color: #53FC18;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="topbar">
+    <div class="brand">Stream<span class="accent">Deck</span></div>
+    <div class="user-info">
+      <!-- To be loaded dynamically -->
+      <span id="username">Loading...</span>
+      <form action="/api/auth/logout" method="POST" style="display:inline; margin-left: 15px;">
+        <button type="submit" style="background:transparent; border:1px solid #555; color:white; padding:5px 10px; cursor:pointer; border-radius:4px;">Logout</button>
+      </form>
+    </div>
+  </div>
+  
+  <div class="main-content">
+    <div class="sidebar">
+      <h3>Event Log</h3>
+      <div id="events-container" style="color:#aaa; font-size:0.9rem;">
+        No events yet.
+      </div>
+    </div>
+    <div class="center-canvas">
+      <!-- 16:9 aspect ratio simulated container for overlay preview -->
+      <div style="width: 1280px; height: 720px; background-color: #000; border: 1px dashed #333; position:relative; transform: scale(0.6);">
+         <div style="position: absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#444;">16:9 Preview Canvas</div>
+      </div>
+    </div>
+    <div class="right-panel">
+      <h3>Controls</h3>
+      <p>Overlay management and toggles go here.</p>
+    </div>
+  </div>
+  
+  <div class="bottom-dock">
+    <div>Presets | Toggles | Progress mini-bar</div>
+  </div>
+
+  <script>
+    // Placeholder fetching of user data or websocket connection logic
+  </script>
+</body>
+</html>
