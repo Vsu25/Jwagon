@@ -896,6 +896,14 @@
     let realtimeChannel;
     let timerEndTime = null;
 
+    // ─── Variables added back ───
+    let currentGoalCount = 0;
+    let goalsList = [];
+    let rouletteSlices = [];
+    let mockCount = 0;
+    let isSpinning = false;
+    let hideDashboardEvents = false; // Filter state
+
     // ─── Init ───
     async function init() {
       try {
@@ -1047,23 +1055,23 @@
       } else if (msg.type === 'countdown:undo') {
         logEvent(`↩ Undid +${msg.data.undoneMs/1000}s (${msg.data.source})`);
       } else if (msg.type === 'countdown:config') {
-        logEvent('⚙ Timer config updated');
+        logEvent('⚙ Timer config updated', false, true);
       } else if (msg.type === 'goal:update') {
         currentGoalCount = msg.data.currentCount;
         renderGoalsSummary();
-        if (showAllGoals) renderAllGoalsList();
+        if (typeof showAllGoals !== 'undefined' && showAllGoals) renderAllGoalsList();
       } else if (msg.type === 'goal:reached') {
         logEvent(`🎯 Goal reached: ${msg.data.goalName}`);
       } else if (msg.type === 'goal:list') {
         goalsList = msg.data.goals;
         renderGoalsSummary();
-        if (showAllGoals) renderAllGoalsList();
+        if (typeof showAllGoals !== 'undefined' && showAllGoals) renderAllGoalsList();
       } else if (msg.type === 'goal:mock_reverted') {
-        logEvent(`↩ Reverted ${msg.data.revertedAmount} mock subs`);
+        logEvent(`↩ Reverted ${msg.data.revertedAmount} mock subs`, false, true);
         if (msg.data.newCount !== undefined) {
           currentGoalCount = msg.data.newCount;
           renderGoalsSummary();
-          if (showAllGoals) renderAllGoalsList();
+          if (typeof showAllGoals !== 'undefined' && showAllGoals) renderAllGoalsList();
         }
       } else if (msg.type === 'roulette:result') {
         showRouletteResult(msg.data.result);
@@ -1080,7 +1088,7 @@
 
     async function sendAction(actionType, payloadObj = {}) {
       try {
-        logEvent(`→ ${actionType}`);
+        logEvent(`→ ${actionType}`, false, true);
         await fetch('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1354,11 +1362,13 @@
 
     function openGoalsModal() {
       renderModalGoals();
+      document.getElementById('goals-modal').style.display = 'flex';
       document.getElementById('goals-modal').classList.add('visible');
     }
 
     function closeGoalsModal() {
       document.getElementById('goals-modal').classList.remove('visible');
+      setTimeout(() => document.getElementById('goals-modal').style.display = 'none', 200);
     }
 
     function renderModalGoals() {
@@ -1407,16 +1417,33 @@
     }
 
     // ─── Event Log ───
-    function logEvent(text, isMock = false) {
+    function logEvent(text, isMock = false, isNoise = false) {
       const cont = document.getElementById('events-container');
       if (cont.querySelector('.event-item')?.style.color) cont.innerHTML = '';
       const el = document.createElement('div');
-      el.className = 'event-item' + (isMock ? ' mock-event' : '');
+      el.className = 'event-item' + (isMock ? ' mock-event' : '') + (isNoise ? ' noise-event' : '');
       const mockBadge = isMock ? '<span class="mock-badge">TEST</span> ' : '';
       el.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> ${mockBadge}${text}`;
+      
+      if (hideDashboardEvents && isNoise) {
+        el.style.display = 'none';
+      }
+      
       cont.prepend(el);
-      // Keep max 50 events
       while (cont.children.length > 50) cont.removeChild(cont.lastChild);
+    }
+
+    function applyEventFilter() {
+      const items = document.querySelectorAll('.event-item.noise-event');
+      items.forEach(el => {
+        el.style.display = hideDashboardEvents ? 'none' : 'block';
+      });
+    }
+
+    function clearMockEvents() {
+      const items = document.querySelectorAll('.event-item.mock-event');
+      items.forEach(el => el.remove());
+      logEvent('🧹 Cleared all mock events in log.', false, true);
     }
 
     function mockKickEvent() {

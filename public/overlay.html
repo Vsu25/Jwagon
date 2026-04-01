@@ -339,11 +339,17 @@
         case 'roulette:spin':
           if (elementVisibility.roulette) {
             showRouletteWheel();
-            animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
+            // Delay the spin slightly so the fade-in finishes
+            setTimeout(() => {
+              animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
+            }, 150);
           }
           break;
         case 'roulette:result':
-          if (elementVisibility.roulette) showRouletteResult(msg.data.result);
+          if (elementVisibility.roulette) {
+            showRouletteResult(msg.data.result);
+            setTimeout(() => hideRouletteWheel(), 5000); // Hide after 5 seconds
+          }
           break;
         case 'goal:mock_reverted':
           currentGoalCount = msg.data.newCount || Math.max(0, currentGoalCount - (msg.data.revertedAmount || 0));
@@ -512,7 +518,7 @@
       if (!rc) {
         rc = document.createElement('div');
         rc.id = 'roulette-container';
-        rc.className = 'overlay-element';
+        rc.className = 'overlay-element fade-out'; // Start faded out!
         rc.innerHTML = `
           <div class="roulette-frame">
             <div class="arrow-outline"></div>
