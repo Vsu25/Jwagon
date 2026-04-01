@@ -42,34 +42,84 @@
     /* ── Goal Bar ── */
     #goal-display {
       top: 90px; left: 20px;
-      padding: 12px 18px;
-      background: rgba(0,0,0,0.65);
-      border-radius: 10px;
+      padding: 14px 20px;
+      background: rgba(0,0,0,0.7);
+      border-radius: 12px;
       color: #fff;
-      min-width: 280px;
-      backdrop-filter: blur(8px);
+      min-width: 300px;
+      backdrop-filter: blur(10px);
       border: 1px solid rgba(255,255,255,0.08);
     }
-    .goal-label { font-size: 13px; color: #aaa; margin-bottom: 4px; }
-    .goal-name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .goal-label { font-size: 12px; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+    .goal-name { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
     .goal-progress-bg {
-      width: 100%; height: 8px;
+      width: 100%; height: 10px;
       background: rgba(255,255,255,0.1);
-      border-radius: 4px;
+      border-radius: 5px;
       overflow: hidden;
+      position: relative;
     }
     .goal-progress-fill {
       height: 100%;
       background: linear-gradient(90deg, #3ab812, #53FC18);
-      border-radius: 4px;
-      transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+      border-radius: 5px;
+      transition: width 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+      position: relative;
     }
-    .goal-count-text { font-size: 14px; color: #53FC18; font-family: 'JetBrains Mono', monospace; margin-top: 6px; }
+    .goal-progress-fill::after {
+      content: '';
+      position: absolute;
+      top: 0; right: 0;
+      width: 20px; height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4));
+      border-radius: 5px;
+    }
+    .goal-count-text { font-size: 15px; color: #53FC18; font-family: 'JetBrains Mono', monospace; margin-top: 8px; }
+
+    /* ── Goal Completion Animation ── */
+    .goal-complete-anim {
+      animation: goalCompleteFlashy 2.5s ease-in-out forwards;
+    }
+    @keyframes goalCompleteFlashy {
+      0% { transform: scale(1); opacity: 1; filter: brightness(1); }
+      8% { transform: scale(1.08); filter: brightness(1.8); }
+      16% { transform: scale(1.04); filter: brightness(1.2); }
+      24% { transform: scale(1.1); filter: brightness(2); }
+      40% { transform: scale(1.06); filter: brightness(1.4); }
+      55% { transform: scale(1.08); filter: brightness(1.6) hue-rotate(20deg); }
+      70% { transform: scale(1.05); filter: brightness(1.2); opacity: 1; }
+      85% { transform: scale(0.98) translateY(-5px); opacity: 0.6; }
+      100% { transform: scale(0.9) translateY(-20px); opacity: 0; }
+    }
+    .goal-enter-anim {
+      animation: goalEnterSmooth 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes goalEnterSmooth {
+      from { opacity: 0; transform: translateY(30px) scale(0.95); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+
+    /* ── Goal Celebration Particles ── */
+    .celebration-particle {
+      position: absolute;
+      pointer-events: none;
+      font-size: 24px;
+      animation: particleBurst 1.5s ease-out forwards;
+    }
+    @keyframes particleBurst {
+      0% { opacity: 1; transform: translate(0, 0) scale(1); }
+      100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(0.3) rotate(var(--rot)); }
+    }
 
     /* ── Roulette ── */
     #roulette-container {
       top: 150px; right: 40px;
       width: 340px; height: 340px;
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+    #roulette-container.fade-out {
+      opacity: 0;
+      transform: scale(0.9);
     }
     .roulette-frame {
       position: relative;
@@ -77,20 +127,35 @@
     }
     #roulette-pointer {
       position: absolute;
-      top: -16px;
+      top: -14px;
       left: 50%;
       transform: translateX(-50%);
       width: 0; height: 0;
       border-left: 14px solid transparent;
       border-right: 14px solid transparent;
       border-top: 24px solid #53FC18;
-      filter: drop-shadow(0 2px 6px rgba(83,252,24,0.5));
+      filter: drop-shadow(0 0 6px rgba(83,252,24,0.6)) drop-shadow(0 2px 3px rgba(0,0,0,0.8));
       z-index: 10;
+    }
+    /* Black outline on arrow via pseudo-element */
+    .arrow-outline {
+      position: absolute;
+      top: -17px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 17px solid transparent;
+      border-right: 17px solid transparent;
+      border-top: 28px solid #000;
+      z-index: 9;
     }
     #roulette-canvas {
       width: 340px; height: 340px;
       border-radius: 50%;
-      box-shadow: 0 0 40px rgba(83,252,24,0.2), 0 0 80px rgba(0,0,0,0.5);
+      border: 4px solid #000;
+      outline: 3px solid #53FC18;
+      outline-offset: 0px;
+      box-shadow: 0 0 25px rgba(83,252,24,0.3), 0 0 50px rgba(83,252,24,0.1), inset 0 0 15px rgba(0,0,0,0.3);
       transition: transform 7s cubic-bezier(0.17, 0.67, 0.12, 0.99);
     }
 
@@ -98,58 +163,40 @@
     #roulette-result-popup {
       top: 510px; right: 40px;
       display: none;
-      background: rgba(0,0,0,0.85);
+      background: rgba(0,0,0,0.9);
       border: 2px solid #53FC18;
-      border-radius: 12px;
-      padding: 16px 28px;
+      border-radius: 14px;
+      padding: 18px 32px;
       text-align: center;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 0 30px rgba(83,252,24,0.2);
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 40px rgba(83,252,24,0.25), 0 0 80px rgba(83,252,24,0.08);
     }
-    #roulette-result-popup .result-label { font-size: 12px; color: #53FC18; text-transform: uppercase; letter-spacing: 2px; }
-    #roulette-result-popup .result-text { font-size: 26px; font-weight: 800; color: #fff; margin-top: 4px; }
+    #roulette-result-popup .result-label { font-size: 11px; color: #53FC18; text-transform: uppercase; letter-spacing: 3px; }
+    #roulette-result-popup .result-text { font-size: 28px; font-weight: 800; color: #fff; margin-top: 6px; }
+    .result-appear { animation: resultPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+    @keyframes resultPop { from { opacity:0; transform: scale(0.6); } to { opacity:1; transform: scale(1); } }
 
     /* ── Alert Box ── */
     #alert-box {
       top: 50%; left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.85);
       border: 2px solid #53FC18;
       border-radius: 14px;
-      padding: 20px 40px;
+      padding: 24px 44px;
       text-align: center;
-      font-size: 22px;
+      font-size: 24px;
       font-weight: 700;
       color: #fff;
       display: none;
-      backdrop-filter: blur(10px);
-      box-shadow: 0 0 40px rgba(83,252,24,0.15);
-      min-width: 300px;
-    }
-
-    /* ── Goal Completion Animation ── */
-    .goal-complete-anim {
-      animation: goalComplete 1.2s ease-in-out forwards;
-    }
-    @keyframes goalComplete {
-      0% { transform: scale(1); opacity: 1; }
-      30% { transform: scale(1.1); opacity: 1; filter: brightness(1.5); }
-      60% { transform: scale(1.05); opacity: 1; }
-      100% { transform: scale(0.95) translateY(-10px); opacity: 0; }
-    }
-    .goal-enter-anim {
-      animation: goalEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    }
-    @keyframes goalEnter {
-      from { opacity: 0; transform: translateY(20px); }
-      to { opacity: 1; transform: translateY(0); }
+      backdrop-filter: blur(12px);
+      box-shadow: 0 0 50px rgba(83,252,24,0.15);
+      min-width: 320px;
     }
   </style>
 </head>
 <body>
-  <div id="overlay-container">
-    <!-- Elements created dynamically -->
-  </div>
+  <div id="overlay-container"></div>
 
   <script>
     const pathParts = window.location.pathname.split('/');
@@ -160,12 +207,7 @@
     let ws;
 
     // ─── Overlay State ───
-    let elementVisibility = {
-      alertBox: true,
-      countdown: true,
-      goalBar: true,
-      roulette: true
-    };
+    let elementVisibility = { alertBox: true, countdown: true, goalBar: true, roulette: true };
 
     let goalsList = [
       { id: '1', name: 'Play Horror Game', type: 'subs', targetCount: 10 },
@@ -174,9 +216,9 @@
     let currentGoalCount = 0;
     let currentGoalIndex = 0;
     let goalsCumulative = true;
-
     let rouletteSlices = [];
     let currentRotation = 0;
+    let rouletteHideTimer = null;
     const container = document.getElementById('overlay-container');
 
     // ─── WebSocket ───
@@ -187,10 +229,7 @@
         const msg = JSON.parse(event.data);
         handleMessage(msg);
       };
-      ws.onclose = () => {
-        console.log('WS Disconnected. Reconnecting in 2s...');
-        setTimeout(connectWs, 2000);
-      };
+      ws.onclose = () => setTimeout(connectWs, 2000);
     }
 
     function handleMessage(msg) {
@@ -206,16 +245,11 @@
           break;
         case 'countdown:tick':
         case 'countdown:update':
-          if (elementVisibility.countdown) {
-            renderCountdown(msg.data.currentMs);
-            if (msg.data.addedMs) renderTimeChip(msg.data.addedMs, msg.data.source);
-          }
+          if (elementVisibility.countdown) renderCountdown(msg.data.currentMs);
+          if (msg.data.addedMs && msg.data.addedMs > 0) renderTimeChip(msg.data.addedMs);
           break;
         case 'countdown:zero':
           renderTimeZero();
-          break;
-        case 'countdown:state':
-          // Timer running state - show/hide handled by visibility
           break;
         case 'goal:update':
           currentGoalCount = msg.data.currentCount;
@@ -224,15 +258,26 @@
         case 'goal:reached':
           handleGoalReached(msg.data.goalName);
           break;
+        case 'goal:list':
+          goalsList = msg.data.goals;
+          renderCurrentGoal();
+          break;
         case 'roulette:update':
           rouletteSlices = msg.data.slices;
           if (elementVisibility.roulette) drawRouletteWheel();
           break;
         case 'roulette:spin':
-          if (elementVisibility.roulette) animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
+          if (elementVisibility.roulette) {
+            showRouletteWheel();
+            animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
+          }
           break;
         case 'roulette:result':
           if (elementVisibility.roulette) showRouletteResult(msg.data.result);
+          break;
+        case 'goal:mock_reverted':
+          currentGoalCount = msg.data.newCount || Math.max(0, currentGoalCount - (msg.data.revertedAmount || 0));
+          renderCurrentGoal();
           break;
         case 'coop:notification':
           renderCoopNotification(msg.data);
@@ -240,55 +285,33 @@
       }
     }
 
-    // ─── State Update Handler (Toggles + Positions) ───
+    // ─── State (toggles + positions) ───
     function handleStateUpdate(data) {
       const { path, value } = data;
-      // Handle visibility toggles
       const visMatch = path.match(/^elements\.(\w+)\.visible$/);
       if (visMatch) {
-        const elName = visMatch[1];
-        elementVisibility[elName] = value;
-        toggleElementVisibility(elName, value);
+        const el = visMatch[1];
+        elementVisibility[el] = value;
+        toggleElementVisibility(el, value);
         return;
       }
-      // Handle position changes
       const posMatch = path.match(/^elements\.(\w+)\.position$/);
       if (posMatch) {
-        const elName = posMatch[1];
-        setElementPosition(elName, value.x, value.y);
+        setElementPosition(posMatch[1], value.x, value.y);
         return;
       }
     }
 
     function toggleElementVisibility(elName, visible) {
-      const elMap = {
-        countdown: 'cd-display',
-        goalBar: 'goal-display',
-        roulette: 'roulette-container',
-        alertBox: 'alert-box'
-      };
-      const domId = elMap[elName];
-      if (!domId) return;
-      const el = document.getElementById(domId);
+      const map = { countdown: 'cd-display', goalBar: 'goal-display', roulette: 'roulette-container', alertBox: 'alert-box' };
+      const el = document.getElementById(map[elName]);
       if (el) el.style.display = visible ? '' : 'none';
     }
 
     function setElementPosition(elName, x, y) {
-      const elMap = {
-        countdown: 'cd-display',
-        goalBar: 'goal-display',
-        roulette: 'roulette-container',
-        alertBox: 'alert-box'
-      };
-      const domId = elMap[elName];
-      if (!domId) return;
-      const el = document.getElementById(domId);
-      if (el) {
-        // Convert percentage positions to CSS
-        el.style.left = x + '%';
-        el.style.top = y + '%';
-        el.style.right = 'auto';
-      }
+      const map = { countdown: 'cd-display', goalBar: 'goal-display', roulette: 'roulette-container', alertBox: 'alert-box' };
+      const el = document.getElementById(map[elName]);
+      if (el) { el.style.left = x + '%'; el.style.top = y + '%'; el.style.right = 'auto'; }
     }
 
     // ─── Countdown ───
@@ -297,46 +320,32 @@
       if (!cd) {
         cd = document.createElement('div');
         cd.id = 'cd-display';
-        cd.className = 'overlay-element gpu-accel';
+        cd.className = 'overlay-element';
         container.appendChild(cd);
       }
       if (!elementVisibility.countdown) { cd.style.display = 'none'; return; }
       cd.style.display = '';
-
-      if (cd.innerText === "TIME'S UP") cd.className = 'overlay-element gpu-accel';
+      if (cd.innerText === "TIME'S UP") cd.className = 'overlay-element';
 
       const h = String(Math.floor(ms / 3600000)).padStart(2, '0');
       const m = String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0');
       const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
       cd.innerText = `${h}:${m}:${s}`;
-
       cd.classList.toggle('danger', ms <= 60000 && ms > 0);
     }
 
-    function renderTimeChip(addedMs, source) {
-      const str = `+${addedMs/1000}s`;
+    function renderTimeChip(addedMs) {
       const c = document.createElement('div');
-      c.className = 'overlay-element anim-slide-up';
-      c.innerText = str;
-      c.style.top = '75px';
-      c.style.left = '20px';
-      c.style.color = '#53FC18';
-      c.style.fontWeight = 'bold';
-      c.style.fontSize = '20px';
-      c.style.textShadow = '0 2px 6px rgba(0,0,0,0.5)';
+      c.className = 'overlay-element';
+      c.innerText = `+${addedMs/1000}s`;
+      c.style.cssText = 'top:75px; left:20px; color:#53FC18; font-weight:bold; font-size:20px; text-shadow:0 2px 6px rgba(0,0,0,0.5); animation:chipSlide 2.5s ease forwards;';
       container.appendChild(c);
-      setTimeout(() => {
-        c.className = 'overlay-element anim-slide-up-out';
-        setTimeout(() => c.remove(), 400);
-      }, 2500);
+      setTimeout(() => c.remove(), 2500);
     }
 
     function renderTimeZero() {
       const cd = document.getElementById('cd-display');
-      if (cd) {
-        cd.innerText = "TIME'S UP";
-        cd.className = 'overlay-element anim-scale-pop times-up';
-      }
+      if (cd) { cd.innerText = "TIME'S UP"; cd.className = 'overlay-element times-up'; }
     }
 
     // ─── Goals (Hierarchical) ───
@@ -345,13 +354,12 @@
       if (!gl) {
         gl = document.createElement('div');
         gl.id = 'goal-display';
-        gl.className = 'overlay-element gpu-accel';
+        gl.className = 'overlay-element';
         container.appendChild(gl);
       }
       if (!elementVisibility.goalBar) { gl.style.display = 'none'; return; }
       gl.style.display = '';
 
-      // Find current active goal (first incomplete one)
       let activeGoal = null;
       for (let i = 0; i < goalsList.length; i++) {
         if (currentGoalCount < goalsList[i].targetCount) {
@@ -362,7 +370,6 @@
       }
 
       if (!activeGoal) {
-        // All goals completed
         gl.innerHTML = `
           <div class="goal-label">🎉 ALL GOALS COMPLETE</div>
           <div class="goal-name" style="color:#53FC18;">Congratulations!</div>
@@ -370,12 +377,7 @@
         return;
       }
 
-      // For cumulative mode, show progress toward current goal
-      const prevTarget = currentGoalIndex > 0 ? goalsList[currentGoalIndex - 1].targetCount : 0;
-      const progressInGoal = goalsCumulative ? currentGoalCount : (currentGoalCount - prevTarget);
-      const goalRange = goalsCumulative ? activeGoal.targetCount : (activeGoal.targetCount - prevTarget);
       const pct = Math.min(100, (currentGoalCount / activeGoal.targetCount) * 100);
-
       gl.innerHTML = `
         <div class="goal-label">Goal ${currentGoalIndex + 1} of ${goalsList.length}</div>
         <div class="goal-name">${activeGoal.name}</div>
@@ -390,17 +392,48 @@
       const gl = document.getElementById('goal-display');
       if (!gl) return;
 
-      // Celebrate animation
+      // Spawn celebration particles
+      spawnCelebrationParticles(gl);
+
+      // Flashy complete animation
       gl.classList.add('goal-complete-anim');
 
+      // Wait for full animation (2.5s) then transition to next goal smoothly
       setTimeout(() => {
         gl.classList.remove('goal-complete-anim');
-        // Advance to next goal
-        currentGoalIndex++;
-        gl.classList.add('goal-enter-anim');
-        renderCurrentGoal();
-        setTimeout(() => gl.classList.remove('goal-enter-anim'), 600);
-      }, 1200);
+        gl.style.opacity = '0';
+
+        // Pause before showing next goal
+        setTimeout(() => {
+          currentGoalIndex++;
+          renderCurrentGoal();
+          gl.style.opacity = '';
+          gl.classList.add('goal-enter-anim');
+          setTimeout(() => gl.classList.remove('goal-enter-anim'), 800);
+        }, 600);
+      }, 2500);
+    }
+
+    function spawnCelebrationParticles(refEl) {
+      const emojis = ['🎉', '⭐', '🎊', '✨', '💚', '🏆'];
+      const rect = refEl.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+
+      for (let i = 0; i < 12; i++) {
+        const p = document.createElement('div');
+        p.className = 'celebration-particle';
+        p.innerText = emojis[i % emojis.length];
+        const angle = (i / 12) * Math.PI * 2;
+        const dist = 80 + Math.random() * 60;
+        p.style.left = cx + 'px';
+        p.style.top = cy + 'px';
+        p.style.setProperty('--px', `${Math.cos(angle) * dist}px`);
+        p.style.setProperty('--py', `${Math.sin(angle) * dist}px`);
+        p.style.setProperty('--rot', `${Math.random() * 360}deg`);
+        document.body.appendChild(p);
+        setTimeout(() => p.remove(), 1500);
+      }
     }
 
     // ─── Roulette ───
@@ -409,9 +442,10 @@
       if (!rc) {
         rc = document.createElement('div');
         rc.id = 'roulette-container';
-        rc.className = 'overlay-element gpu-accel';
+        rc.className = 'overlay-element';
         rc.innerHTML = `
           <div class="roulette-frame">
+            <div class="arrow-outline"></div>
             <div id="roulette-pointer"></div>
             <canvas id="roulette-canvas" width="680" height="680"></canvas>
           </div>
@@ -421,6 +455,18 @@
       if (!elementVisibility.roulette) rc.style.display = 'none';
       else rc.style.display = '';
       return rc;
+    }
+
+    function showRouletteWheel() {
+      const rc = ensureRouletteContainer();
+      rc.classList.remove('fade-out');
+      rc.style.display = '';
+      if (rouletteHideTimer) { clearTimeout(rouletteHideTimer); rouletteHideTimer = null; }
+    }
+
+    function hideRouletteWheel() {
+      const rc = document.getElementById('roulette-container');
+      if (rc) rc.classList.add('fade-out');
     }
 
     function drawRouletteWheel() {
@@ -446,7 +492,7 @@
         const start = i * sliceAngle - Math.PI / 2;
         const end = start + sliceAngle;
 
-        // Draw slice
+        // Slice fill
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, r, start, end);
@@ -457,46 +503,70 @@
         // Black divider lines
         ctx.beginPath();
         ctx.moveTo(cx, cy);
-        ctx.arc(cx, cy, r, start, start);
         ctx.lineTo(cx + r * Math.cos(start), cy + r * Math.sin(start));
         ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.stroke();
 
-        // Text label
+        // Text or emote label
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(start + sliceAngle / 2);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px Inter';
-        ctx.shadowColor = 'rgba(0,0,0,0.8)';
-        ctx.shadowBlur = 4;
-        ctx.shadowOffsetX = 1;
-        ctx.shadowOffsetY = 1;
 
-        // Wrap text if too long
-        const text = slice.text.length > 16 ? slice.text.substring(0, 14) + '…' : slice.text;
-        ctx.fillText(text, r * 0.55, 0);
+        const displayText = slice.emote || slice.text;
+        if (slice.emote) {
+          ctx.font = '32px serif';
+          ctx.fillText(displayText, r * 0.55, 0);
+        } else {
+          ctx.fillStyle = '#fff';
+          ctx.font = 'bold 16px Inter';
+          ctx.shadowColor = 'rgba(0,0,0,0.8)';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 1;
+          ctx.shadowOffsetY = 1;
+          const text = displayText.length > 16 ? displayText.substring(0, 14) + '…' : displayText;
+          ctx.fillText(text, r * 0.55, 0);
+        }
         ctx.restore();
       });
 
-      // Outer ring
+      // Outer ring - green neon
+      ctx.beginPath();
+      ctx.arc(cx, cy, r + 2, 0, Math.PI * 2);
+      ctx.strokeStyle = '#53FC18';
+      ctx.lineWidth = 3;
+      ctx.shadowColor = 'rgba(83,252,24,0.6)';
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Black border
       ctx.beginPath();
       ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.strokeStyle = '#53FC18';
+      ctx.strokeStyle = '#000';
       ctx.lineWidth = 4;
       ctx.stroke();
 
       // Black center circle
       ctx.beginPath();
-      ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+      ctx.arc(cx, cy, 34, 0, Math.PI * 2);
       ctx.fillStyle = '#0a0a0a';
       ctx.fill();
-      ctx.strokeStyle = '#53FC18';
+      ctx.strokeStyle = '#000';
       ctx.lineWidth = 3;
       ctx.stroke();
+
+      // Green center accent
+      ctx.beginPath();
+      ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+      ctx.strokeStyle = '#53FC18';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(83,252,24,0.4)';
+      ctx.shadowBlur = 6;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
 
       // Center dot
       ctx.beginPath();
@@ -509,11 +579,9 @@
       ensureRouletteContainer();
       const canvas = document.getElementById('roulette-canvas');
       if (!canvas) return;
-      // Reset transition for re-spin
       canvas.style.transition = 'none';
       canvas.style.transform = `rotate(${currentRotation}deg)`;
-      // Force reflow
-      canvas.offsetHeight;
+      canvas.offsetHeight; // force reflow
       canvas.style.transition = `transform ${duration}ms cubic-bezier(0.17, 0.67, 0.12, 0.99)`;
       canvas.style.transform = `rotate(${targetAngle}deg)`;
       currentRotation = targetAngle;
@@ -528,15 +596,21 @@
         container.appendChild(popup);
       }
       popup.style.display = 'block';
-      popup.className = 'overlay-element anim-scale-pop';
+      popup.className = 'overlay-element result-appear';
       popup.innerHTML = `
         <div class="result-label">Winner</div>
         <div class="result-text">${result}</div>
       `;
+
+      // After 1.5s of showing result, hide the wheel
       setTimeout(() => {
-        popup.className = 'overlay-element anim-scale-pop-out';
-        setTimeout(() => { popup.style.display = 'none'; }, 300);
-      }, 7000);
+        hideRouletteWheel();
+      }, 1500);
+
+      // Hide result popup after 6s
+      setTimeout(() => {
+        popup.style.display = 'none';
+      }, 6000);
     }
 
     // ─── Alerts ───
@@ -554,30 +628,18 @@
       ab.innerText = data.text;
 
       setTimeout(() => {
-        ab.className = 'overlay-element anim-scale-pop-out';
-        setTimeout(() => { ab.style.display = 'none'; }, 400);
+        ab.className = 'overlay-element';
+        ab.style.display = 'none';
       }, data.duration || 4000);
     }
 
     function renderCoopNotification(data) {
       const notif = document.createElement('div');
-      notif.className = 'overlay-element anim-slide-up';
-      notif.style.bottom = '40px';
-      notif.style.left = '50%';
-      notif.style.transform = 'translateX(-50%)';
-      notif.style.background = 'rgba(0,0,0,0.8)';
-      notif.style.color = '#53FC18';
-      notif.style.padding = '12px 24px';
-      notif.style.borderRadius = '10px';
-      notif.style.fontSize = '16px';
-      notif.style.fontWeight = '600';
-      notif.style.border = '1px solid rgba(83,252,24,0.3)';
+      notif.className = 'overlay-element';
+      notif.style.cssText = 'bottom:40px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,0.8); color:#53FC18; padding:12px 24px; border-radius:10px; font-size:16px; font-weight:600; border:1px solid rgba(83,252,24,0.3);';
       notif.innerText = data.message;
       container.appendChild(notif);
-      setTimeout(() => {
-        notif.className = 'overlay-element anim-fade-out';
-        setTimeout(() => notif.remove(), 400);
-      }, 5000);
+      setTimeout(() => notif.remove(), 5000);
     }
 
     // ─── Init ───

@@ -551,7 +551,7 @@
     <!-- ─── Left Sidebar: Event Log ─── -->
     <div class="sidebar">
       <h3>Event Log</h3>
-      <div id="events-container">
+      <div id="events-container" style="max-height: 200px; overflow-y: auto;">
         <div class="event-item" style="color:var(--text-muted);">Waiting for events...</div>
       </div>
 
@@ -617,11 +617,26 @@
           <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 45000})">+45s</button>
           <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 60000})">+1m</button>
           <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 180000})">+3m</button>
+          <button class="btn btn-sm btn-danger" onclick="sendAction('countdown_undo_last')" title="Undo last add">↩ Undo</button>
         </div>
 
         <div class="custom-add-row">
           <input type="number" id="custom-add-input" placeholder="Seconds" min="1">
           <button class="btn btn-sm" onclick="customAdd()">+ Add</button>
+        </div>
+
+        <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Sub Timer Config</div>
+          <div class="timer-set-row">
+            <label style="min-width:85px;">Per Sub</label>
+            <input type="number" id="cfg-time-per-sub" value="30" min="0" style="flex:1;" placeholder="seconds">
+            <span style="font-size:0.7rem; color:var(--text-muted);">sec</span>
+          </div>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:8px;">
+            <label style="font-size:0.78rem; color:var(--text-secondary); flex:1;">Auto-add on sub</label>
+            <button id="auto-add-toggle" class="btn btn-sm btn-accent" onclick="toggleAutoAdd()" style="min-width:50px;">ON</button>
+          </div>
+          <button class="btn btn-sm" onclick="saveSubConfig()" style="width:100%;">Save Config</button>
         </div>
       </div>
 
@@ -658,6 +673,10 @@
             <label>Action</label>
             <input type="text" id="new-slice-action" placeholder="What happens when it lands here">
           </div>
+          <div class="form-row">
+            <label>Emote</label>
+            <input type="text" id="new-slice-emote" placeholder="🎲 (leave empty for text)" style="max-width:100px;">
+          </div>
           <div class="form-row" style="justify-content: flex-end;">
             <button class="btn btn-sm" onclick="toggleAddSection()">Cancel</button>
             <button class="btn btn-accent btn-sm" onclick="addSlice()">Add</button>
@@ -669,11 +688,27 @@
       <div class="panel-section">
         <div class="panel-header">
           <span class="panel-title">🎯 Goals</span>
-          <button class="btn btn-sm" onclick="openGoalsModal()">Manage Goals</button>
+          <div style="display:flex; gap:6px;">
+            <button id="show-all-goals-btn" class="btn btn-sm" onclick="toggleShowAllGoals()">Show All</button>
+            <button class="btn btn-sm" onclick="openGoalsModal()">Manage</button>
+          </div>
         </div>
 
         <div id="goals-summary">
           <!-- rendered dynamically -->
+        </div>
+
+        <div id="goals-all-list" style="display:none; margin-top:8px; padding-top:8px; border-top:1px solid var(--border);">
+          <!-- all goals shown here when toggled -->
+        </div>
+
+        <div style="display:flex; gap:6px; margin-top:10px;">
+          <input type="number" id="manual-goal-add" placeholder="Amount" min="1" value="1" style="flex:1;">
+          <button class="btn btn-sm btn-accent" onclick="manualGoalAdd()">+ Add to Goals</button>
+        </div>
+        <div style="display:flex; gap:6px; margin-top:6px;">
+          <button class="btn btn-sm btn-danger" onclick="revertMockSubs()" style="flex:1;">↩ Revert Test Subs</button>
+          <span id="mock-count" style="font-size:0.7rem; color:var(--text-muted); align-self:center;">0 mocked</span>
         </div>
       </div>
 
@@ -761,6 +796,7 @@
     let timerRunning = false;
     let currentTimerMs = 3600000;
     let isSpinning = false;
+    let mockCount = 0;
 
     let rouletteSlices = [
       { text: 'Eat Bean Boozled', color: '#ff3333', action: 'Must eat a Bean Boozled jelly bean' },
@@ -823,17 +859,33 @@
       if (msg.type === 'countdown:tick' || msg.type === 'countdown:update') {
         currentTimerMs = msg.data.currentMs;
         renderTimerDisplay();
-        if (msg.data.addedMs) logEvent(`Timer +${msg.data.addedMs/1000}s`);
+        if (msg.data.addedMs && msg.data.addedMs !== 0) logEvent(`Timer ${msg.data.addedMs > 0 ? '+' : ''}${msg.data.addedMs/1000}s`);
       } else if (msg.type === 'countdown:state') {
         timerRunning = msg.data.running;
         updateTimerUI();
       } else if (msg.type === 'countdown:zero') {
         logEvent('⏰ Timer reached zero!');
+      } else if (msg.type === 'countdown:undo') {
+        logEvent(`↩ Undid +${msg.data.undoneMs/1000}s (${msg.data.source})`);
+      } else if (msg.type === 'countdown:config') {
+        logEvent('⚙ Timer config updated');
       } else if (msg.type === 'goal:update') {
         currentGoalCount = msg.data.currentCount;
         renderGoalsSummary();
+        if (showAllGoals) renderAllGoalsList();
       } else if (msg.type === 'goal:reached') {
         logEvent(`🎯 Goal reached: ${msg.data.goalName}`);
+      } else if (msg.type === 'goal:list') {
+        goalsList = msg.data.goals;
+        renderGoalsSummary();
+        if (showAllGoals) renderAllGoalsList();
+      } else if (msg.type === 'goal:mock_reverted') {
+        logEvent(`↩ Reverted ${msg.data.revertedAmount} mock subs`);
+        if (msg.data.newCount !== undefined) {
+          currentGoalCount = msg.data.newCount;
+          renderGoalsSummary();
+          if (showAllGoals) renderAllGoalsList();
+        }
       } else if (msg.type === 'roulette:result') {
         showRouletteResult(msg.data.result);
         isSpinning = false;
@@ -841,7 +893,7 @@
       } else if (msg.type === 'roulette:spin') {
         animateWheelSpin(msg.data.targetAngle, msg.data.duration);
       } else if (msg.type === 'state:update') {
-        logEvent('State: ' + msg.data.path);
+        // Don't log toggle/position state updates as they're noisy
       } else if (msg.type === 'coop:notification') {
         logEvent('🤝 ' + msg.data.message);
       }
@@ -1001,7 +1053,7 @@
       container.innerHTML = rouletteSlices.map((s, i) => `
         <div class="slice-item">
           <div class="slice-color" style="background:${s.color};"></div>
-          <span class="slice-name" title="${s.action || s.text}">${s.text}</span>
+          <span class="slice-name" title="${s.action || s.text}">${s.emote ? s.emote + ' ' : ''}${s.text}</span>
           <button class="btn-icon delete" onclick="removeSlice(${i})" title="Delete">🗑</button>
         </div>
       `).join('');
@@ -1015,11 +1067,15 @@
       const name = document.getElementById('new-slice-name').value.trim();
       const color = document.getElementById('new-slice-color').value;
       const action = document.getElementById('new-slice-action').value.trim();
+      const emote = document.getElementById('new-slice-emote').value.trim();
       if (!name) return;
 
-      rouletteSlices.push({ text: name, color, action: action || name });
+      const slice = { text: name, color, action: action || name };
+      if (emote) slice.emote = emote;
+      rouletteSlices.push(slice);
       document.getElementById('new-slice-name').value = '';
       document.getElementById('new-slice-action').value = '';
+      document.getElementById('new-slice-emote').value = '';
 
       renderWheel();
       renderSliceList();
@@ -1062,23 +1118,46 @@
     function renderGoalsSummary() {
       const container = document.getElementById('goals-summary');
       if (goalsList.length === 0) {
-        container.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:12px;">No goals set. Click "Manage Goals" to add some.</div>';
+        container.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:12px;">No goals set. Click "Manage" to add some.</div>';
         return;
       }
-      container.innerHTML = goalsList.map(g => {
-        const pct = Math.min(100, (currentGoalCount / g.targetCount) * 100);
-        return `
-          <div class="goal-item">
+
+      // Find first incomplete goal (hierarchical)
+      let activeGoal = null;
+      let activeIndex = -1;
+      for (let i = 0; i < goalsList.length; i++) {
+        if (currentGoalCount < goalsList[i].targetCount) {
+          activeGoal = goalsList[i];
+          activeIndex = i;
+          break;
+        }
+      }
+
+      if (!activeGoal) {
+        container.innerHTML = `
+          <div class="goal-item" style="border-left:3px solid var(--accent);">
             <div class="goal-header">
-              <span class="goal-name">${g.name}</span>
-              <span class="goal-count">${currentGoalCount} / ${g.targetCount}</span>
-            </div>
-            <div class="goal-bar-bg">
-              <div class="goal-bar-fill" style="width:${pct}%;"></div>
+              <span class="goal-name" style="color:var(--accent);">🎉 All Goals Complete!</span>
+              <span class="goal-count">${currentGoalCount} total</span>
             </div>
           </div>
         `;
-      }).join('');
+        return;
+      }
+
+      const pct = Math.min(100, (currentGoalCount / activeGoal.targetCount) * 100);
+      container.innerHTML = `
+        <div class="goal-item">
+          <div style="font-size:0.7rem; color:var(--text-muted); margin-bottom:4px;">Current Goal (${activeIndex + 1} of ${goalsList.length})</div>
+          <div class="goal-header">
+            <span class="goal-name">${activeGoal.name}</span>
+            <span class="goal-count">${currentGoalCount} / ${activeGoal.targetCount}</span>
+          </div>
+          <div class="goal-bar-bg">
+            <div class="goal-bar-fill" style="width:${pct}%;"></div>
+          </div>
+        </div>
+      `;
     }
 
     function openGoalsModal() {
@@ -1156,6 +1235,8 @@
       };
       logEvent(`🔌 Mock: ${labels[eventType] || eventType}`);
       sendAction('mock_event', { eventType });
+      mockCount++;
+      document.getElementById('mock-count').innerText = `${mockCount} mocked`;
     }
 
     // ─── Toggle Overlay Elements ───
@@ -1176,6 +1257,89 @@
       sendAction('toggle', { element: elName });
     }
 
+    // ─── Goal: Show All Toggle ───
+    let showAllGoals = false;
+
+    function toggleShowAllGoals() {
+      showAllGoals = !showAllGoals;
+      const btn = document.getElementById('show-all-goals-btn');
+      const list = document.getElementById('goals-all-list');
+      if (showAllGoals) {
+        btn.innerText = 'Hide All';
+        btn.classList.add('btn-accent');
+        list.style.display = 'block';
+        renderAllGoalsList();
+      } else {
+        btn.innerText = 'Show All';
+        btn.classList.remove('btn-accent');
+        list.style.display = 'none';
+      }
+    }
+
+    function renderAllGoalsList() {
+      const container = document.getElementById('goals-all-list');
+      if (goalsList.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); font-size:0.78rem;">No goals defined.</div>';
+        return;
+      }
+      container.innerHTML = goalsList.map((g, i) => {
+        const pct = Math.min(100, (currentGoalCount / g.targetCount) * 100);
+        const completed = currentGoalCount >= g.targetCount;
+        return `
+          <div class="goal-item" style="${completed ? 'border-left:3px solid var(--accent);' : 'border-left:3px solid var(--border);'}">
+            <div class="goal-header">
+              <span class="goal-name">${completed ? '✅ ' : ''}${i+1}. ${g.name}</span>
+              <span class="goal-count">${Math.min(currentGoalCount, g.targetCount)} / ${g.targetCount}</span>
+            </div>
+            <div class="goal-bar-bg">
+              <div class="goal-bar-fill" style="width:${pct}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // ─── Goal: Manual Add ───
+    function manualGoalAdd() {
+      const amount = parseInt(document.getElementById('manual-goal-add').value) || 1;
+      sendAction('goals_manual_add', { amount });
+      logEvent(`🎯 Manual add: +${amount}`);
+    }
+
+    // ─── Goal: Revert Mocks ───
+    function revertMockSubs() {
+      if (mockCount === 0) return;
+      sendAction('goals_revert_mocks');
+      logEvent(`↩ Reverting ${mockCount} mock subs`);
+      mockCount = 0;
+      document.getElementById('mock-count').innerText = '0 mocked';
+    }
+
+    // ─── Countdown: Auto-add Toggle ───
+    let autoAddEnabled = true;
+
+    function toggleAutoAdd() {
+      autoAddEnabled = !autoAddEnabled;
+      const btn = document.getElementById('auto-add-toggle');
+      if (autoAddEnabled) {
+        btn.innerText = 'ON';
+        btn.classList.add('btn-accent');
+        btn.classList.remove('btn-danger');
+      } else {
+        btn.innerText = 'OFF';
+        btn.classList.remove('btn-accent');
+        btn.classList.add('btn-danger');
+      }
+    }
+
+    function saveSubConfig() {
+      const timePerSub = (parseInt(document.getElementById('cfg-time-per-sub').value) || 30) * 1000;
+      sendAction('countdown_update_config', {
+        config: { timePerSub, autoAddEnabled }
+      });
+      logEvent(`⚙ Sub config saved: ${timePerSub/1000}s/sub, auto=${autoAddEnabled ? 'ON' : 'OFF'}`);
+    }
+
     // ─── Drag & Drop for Preview Canvas ───
     function initDrag() {
       const frame = document.getElementById('preview-frame');
@@ -1187,7 +1351,6 @@
 
         el.addEventListener('mousedown', (e) => {
           isDragging = true;
-          const rect = frame.getBoundingClientRect();
           offsetX = e.clientX - el.getBoundingClientRect().left;
           offsetY = e.clientY - el.getBoundingClientRect().top;
           el.style.zIndex = '10';
@@ -1199,7 +1362,6 @@
           const rect = frame.getBoundingClientRect();
           let x = e.clientX - rect.left - offsetX;
           let y = e.clientY - rect.top - offsetY;
-          // Clamp
           x = Math.max(0, Math.min(x, rect.width - el.offsetWidth));
           y = Math.max(0, Math.min(y, rect.height - el.offsetHeight));
           el.style.left = x + 'px';
@@ -1212,7 +1374,6 @@
           if (!isDragging) return;
           isDragging = false;
           el.style.zIndex = '';
-          // Send position as percentage to server
           const rect = frame.getBoundingClientRect();
           const xPct = ((el.offsetLeft) / rect.width) * 100;
           const yPct = ((el.offsetTop) / rect.height) * 100;
