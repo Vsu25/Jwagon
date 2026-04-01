@@ -697,27 +697,27 @@
         <div id="timer-display" class="timer-display">01:00:00</div>
 
         <div class="timer-controls">
-          <button id="btn-start" class="btn btn-accent" onclick="toggleTimer()">▶ Start</button>
-          <button class="btn btn-danger btn-sm" onclick="sendAction('countdown_reset')">Reset</button>
+          <button id="btn-start" class="btn btn-accent" onclick="toggleTimer(this)">▶ Start</button>
+          <button class="btn btn-danger btn-sm" onclick="sendAction('countdown_reset', {}, this)">Reset</button>
         </div>
 
         <div class="timer-set-row">
           <label>Set Time</label>
           <input type="number" id="timer-set-input" placeholder="Minutes" min="1" max="1440" value="60" style="flex:1;">
-          <button class="btn btn-sm" onclick="setTimer()">Set</button>
+          <button class="btn btn-sm" onclick="setTimer(this)">Set</button>
         </div>
 
         <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Quick Add</div>
         <div class="quick-add-row">
-          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 45000})">+45s</button>
-          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 60000})">+1m</button>
-          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 180000})">+3m</button>
-          <button class="btn btn-sm btn-danger" onclick="sendAction('countdown_undo_last')" title="Undo last add">↩ Undo</button>
+          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 45000}, this)">+45s</button>
+          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 60000}, this)">+1m</button>
+          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 180000}, this)">+3m</button>
+          <button class="btn btn-sm btn-danger" onclick="sendAction('countdown_undo_last', {}, this)" title="Undo last add">↩ Undo</button>
         </div>
 
         <div class="custom-add-row">
           <input type="number" id="custom-add-input" placeholder="Seconds" min="1">
-          <button class="btn btn-sm" onclick="customAdd()">+ Add</button>
+          <button class="btn btn-sm" onclick="customAdd(this)">+ Add</button>
         </div>
 
         <div style="margin-top:12px; padding-top:10px; border-top:1px solid var(--border);">
@@ -747,7 +747,7 @@
           <canvas id="wheel-canvas" class="wheel-canvas" width="440" height="440"></canvas>
         </div>
 
-        <button id="spin-btn" class="spin-btn" onclick="spinWheel()">SPIN ROULETTE</button>
+        <button id="spin-btn" class="spin-btn" onclick="spinWheel(this)">SPIN ROULETTE</button>
         <div id="result-banner" class="result-banner"></div>
 
         <div id="slice-list" class="slice-list">
@@ -1098,30 +1098,26 @@
       }
     }
 
-    let actionInFlight = false;
-    let actionTimeout = null;
+    let isSpinning = false; // Safety reset for roulette
+    let actionTimeouts = {}; 
 
-    async function sendAction(actionType, payloadObj = {}) {
-      if (actionInFlight) return; // Rate limit: Ignore repeated clicks until previous finishes
-      
-      actionInFlight = true;
-      if (actionTimeout) clearTimeout(actionTimeout);
+    async function sendAction(actionType, payloadObj = {}, btnElement = null) {
+      // Prevent double spins
+      if (actionType.startsWith('roulette_spin') && isSpinning) return;
+      if (actionType.startsWith('roulette_spin')) isSpinning = true;
 
-      // Simple visual feedback: show small cooldown on all buttons
-      const btns = document.querySelectorAll('.btn');
-      btns.forEach(b => b.classList.add('btn-processing'));
+      // Provide visual feedback if a button was passed
+      if (btnElement) {
+        btnElement.classList.add('btn-processing');
+        btnElement.disabled = true;
+        setTimeout(() => {
+          btnElement.classList.remove('btn-processing');
+          if (!isSpinning || btnElement.id !== 'spin-btn') btnElement.disabled = false;
+        }, 800);
+      }
 
       try {
         logEvent(`→ ${actionType}`, false, true);
-        
-        // Safety timeout: If no confirmation back from server/realtime in 8s, reset the UI
-        actionTimeout = setTimeout(() => {
-          console.warn(`Action ${actionType} timed out. Resetting state.`);
-          actionInFlight = false;
-          isSpinning = false; // Safety reset for roulette
-          document.getElementById('spin-btn').disabled = false;
-          btns.forEach(b => b.classList.remove('btn-processing'));
-        }, 8000);
 
         await fetch('/api/command', {
           method: 'POST',
@@ -1130,14 +1126,7 @@
         });
       } catch (err) {
         console.error('Command failed', err);
-        actionInFlight = false;
-        btns.forEach(b => b.classList.remove('btn-processing'));
-      } finally {
-        // Clear flight flag after short mandatory wait (1s)
-        setTimeout(() => {
-          actionInFlight = false;
-          btns.forEach(b => b.classList.remove('btn-processing'));
-        }, 1000); 
+        if (actionType.startsWith('roulette_spin')) isSpinning = false;
       }
     }
 
@@ -1210,33 +1199,39 @@
       }
     }
 
-    function toggleTimer() {
+    function toggleTimer(btn) {
       if (timerRunning) {
-        sendAction('countdown_stop');
+        sendAction('countdown_stop', {}, btn);
         timerRunning = false;
         timerEndTime = null;
       } else {
         // Predictive start: calculate endTime immediately for local display
         timerEndTime = Date.now() + currentTimerMs;
         timerRunning = true;
-        sendAction('countdown_start');
+        sendAction('countdown_start', {}, btn);
       }
       updateTimerUI();
     }
 
-    function setTimer() {
+    function setTimer(btn) {
       const mins = parseInt(document.getElementById('timer-set-input').value);
       if (!mins || mins < 1) return;
       const ms = mins * 60000;
-      sendAction('countdown_set', { ms });
+      
+      // Speculative local update to prevent UI flash
+      timerRunning = false;
+      timerEndTime = null;
       currentTimerMs = ms;
+      updateTimerUI();
       renderTimerDisplay();
+
+      sendAction('countdown_set', { ms }, btn);
     }
 
-    function customAdd() {
+    function customAdd(btn) {
       const secs = parseInt(document.getElementById('custom-add-input').value);
       if (!secs || secs < 1) return;
-      sendAction('countdown_custom_add', { ms: secs * 1000 });
+      sendAction('countdown_custom_add', { ms: secs * 1000 }, btn);
       document.getElementById('custom-add-input').value = '';
     }
 
@@ -1369,12 +1364,12 @@
       sendAction('roulette_save_slices', { slices: rouletteSlices });
     }
 
-    function spinWheel() {
+    function spinWheel(btn) {
       if (isSpinning || rouletteSlices.length === 0) return;
       isSpinning = true;
       document.getElementById('spin-btn').disabled = true;
       document.getElementById('result-banner').style.display = 'none';
-      sendAction('roulette_spin', { slices: rouletteSlices });
+      sendAction('roulette_spin', { slices: rouletteSlices }, btn);
     }
 
     function animateWheelSpin(targetAngle, duration) {
