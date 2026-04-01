@@ -178,6 +178,20 @@
       outline: none;
     }
     .btn:hover { background: var(--border); border-color: var(--border-hover); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-processing {
+      opacity: 0.6;
+      cursor: wait !important;
+      pointer-events: none !important;
+      position: relative;
+    }
+    .btn-processing::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.1);
+      border-radius: inherit;
+    }
     .btn-accent {
       background: var(--accent);
       color: #000;
@@ -809,6 +823,20 @@
         <button class="btn btn-danger btn-sm" onclick="sendAction('coop_stop')" style="width:100%; margin-top:8px;">Unlink Session</button>
       </div>
 
+      <!-- ── TELEMETRY PANEL ── -->
+      <div class="panel-section" id="telemetry-panel" style="margin-top:auto; border-top:2px solid var(--border); padding-top:16px;">
+        <div class="panel-header" style="margin-bottom:8px;">
+          <span class="panel-title" style="font-size:0.7rem; color:var(--text-muted);">🛰 TELEMETRY & SYNC</span>
+          <div style="display:flex; gap:4px;">
+            <button class="btn btn-xs" onclick="sendAction('state_sync_heartbeat')">Force Sync</button>
+            <button class="btn btn-xs btn-danger" onclick="if(confirm('Wipe session state?')) sendAction('session_reset')">Reset System</button>
+          </div>
+        </div>
+        <div id="telemetry-logs" style="height:80px; overflow-y:auto; font-family:'JetBrains Mono'; font-size:10px; color:#555; background:#050505; padding:6px; border-radius:4px; border:1px solid #1a1a1a;">
+          <div>[SYS] Dashboard Initializing...</div>
+        </div>
+      </div>
+
     </div>
   </div>
 
@@ -904,7 +932,7 @@
     let isSpinning = false;
     let hideDashboardEvents = false; // Filter state
     let timerRunning = false;
-    let currentTimerMs = 0;
+    let currentTimerMs = 3600000; // Default to 1 hour if not set
 
     // ─── Init ───
     async function init() {
@@ -995,30 +1023,53 @@
 
     // ─── Supabase Realtime ───
     function applyInitialState(state) {
-      if (state.countdown) {
-        timerRunning = state.countdown.running;
-        currentTimerMs = state.countdown.currentMs;
-        timerEndTime = state.countdown.endTime;
+      // Handle consolidated response from /api/state
+      const config = state.overlay?.config || state.overlay || {};
+      const session = config.session || {};
+
+      // 1. Countdown
+      if (session.countdown) {
+        timerRunning = session.countdown.running;
+        currentTimerMs = session.countdown.currentMs || 3600000;
+        timerEndTime = session.countdown.endTime;
         updateTimerUI();
         renderTimerDisplay();
       }
-      if (state.goals) {
-        currentGoalCount = state.goals.currentCount || 0;
-        goalsList = state.goals.list || [];
+
+      // 2. Goals
+      if (session.goals) {
+        currentGoalCount = session.goals.currentCount || 0;
+        goalsList = session.goals.list || [];
         renderGoalsSummary();
       }
-      if (state.roulette && state.roulette.slices) {
-        rouletteSlices = state.roulette.slices;
+
+      // 3. Roulette
+      if (session.roulette) {
+        rouletteSlices = session.roulette.slices || [];
         renderSliceList();
         renderWheel();
       }
     }
 
     function connectRealtime() {
-      if (realtimeChannel) {
-        supabaseClient.removeChannel(realtimeChannel);
-      }
-      
+      if (!supabaseClient) return;
+
+      // 1. Listen for Database Changes (Authority)
+      supabaseClient
+        .channel('db-sync-dash')
+        .on('postgres_changes', { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'overlay_configs', 
+            filter: `user_id=eq.${targetUserId}` 
+        }, (payload) => {
+            console.log('[DB] Remote update detected');
+            applyInitialState({ overlay: payload.new });
+            logEvent('[SYNC] State updated from DB', false, false, true);
+        })
+        .subscribe();
+
+      // 2. Listen for Broadcasts (Legacy support / Inter-mod chat)
       const channelName = 'overlay:' + targetUserId;
       realtimeChannel = supabaseClient.channel(channelName);
       
@@ -1089,11 +1140,30 @@
     }
 
     let actionInFlight = false;
+    let actionTimeout = null;
+
     async function sendAction(actionType, payloadObj = {}) {
       if (actionInFlight) return; // Rate limit: Ignore repeated clicks until previous finishes
+      
       actionInFlight = true;
+      if (actionTimeout) clearTimeout(actionTimeout);
+
+      // Simple visual feedback: show small cooldown on all buttons
+      const btns = document.querySelectorAll('.btn');
+      btns.forEach(b => b.classList.add('btn-processing'));
+
       try {
         logEvent(`→ ${actionType}`, false, true);
+        
+        // Safety timeout: If no confirmation back from server/realtime in 8s, reset the UI
+        actionTimeout = setTimeout(() => {
+          console.warn(`Action ${actionType} timed out. Resetting state.`);
+          actionInFlight = false;
+          isSpinning = false; // Safety reset for roulette
+          document.getElementById('spin-btn').disabled = false;
+          btns.forEach(b => b.classList.remove('btn-processing'));
+        }, 8000);
+
         await fetch('/api/command', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1101,12 +1171,35 @@
         });
       } catch (err) {
         console.error('Command failed', err);
+        actionInFlight = false;
+        btns.forEach(b => b.classList.remove('btn-processing'));
       } finally {
-        setTimeout(() => actionInFlight = false, 250); // 250ms minimum cool-down
+        // Clear flight flag after short mandatory wait (1s)
+        setTimeout(() => {
+          actionInFlight = false;
+          btns.forEach(b => b.classList.remove('btn-processing'));
+        }, 1000); 
       }
     }
 
-    
+    // ─── Sync Heartbeat (Dashboard-to-Overlay) ───
+    // Sends the current dashboard state every 10s to ensure the overlay stays aligned
+    setInterval(() => {
+       if (!targetUserId || !realtimeChannel) return;
+       if (document.hidden) return;
+
+       // Push current state to DB (Heartbeat Sync)
+       // This ensures that even if we hit a different Lambda, the state is consistent.
+       sendAction('state_sync_heartbeat', {
+          session: {
+            countdown: { currentMs: currentTimerMs, running: timerRunning, endTime: timerEndTime },
+            goals: { currentCount: currentGoalCount, list: goalsList },
+            roulette: { slices: rouletteSlices }
+          }
+       });
+       logEvent('[HB] Sync Pulse Sent', false, false, true);
+    }, 10000);
+
     // ─── Client-Side Timer Ticker ───
     setInterval(() => {
       if (timerRunning && timerEndTime) {
@@ -1149,9 +1242,12 @@
       if (timerRunning) {
         sendAction('countdown_stop');
         timerRunning = false;
+        timerEndTime = null;
       } else {
-        sendAction('countdown_start');
+        // Predictive start: calculate endTime immediately for local display
+        timerEndTime = Date.now() + currentTimerMs;
         timerRunning = true;
+        sendAction('countdown_start');
       }
       updateTimerUI();
     }
@@ -1424,13 +1520,25 @@
     }
 
     // ─── Event Log ───
-    function logEvent(text, isMock = false, isNoise = false) {
+    function logEvent(text, isMock = false, isNoise = false, isSystem = false) {
       const cont = document.getElementById('events-container');
+      const tel = document.getElementById('telemetry-logs');
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      if (isSystem && tel) {
+        const line = document.createElement('div');
+        line.innerText = `[${time}] ${text}`;
+        tel.prepend(line);
+        while (tel.children.length > 20) tel.removeChild(tel.lastChild);
+        return;
+      }
+
+      if (!cont) return;
       if (cont.querySelector('.event-item')?.style.color) cont.innerHTML = '';
       const el = document.createElement('div');
       el.className = 'event-item' + (isMock ? ' mock-event' : '') + (isNoise ? ' noise-event' : '');
       const mockBadge = isMock ? '<span class="mock-badge">TEST</span> ' : '';
-      el.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> ${mockBadge}${text}`;
+      el.innerHTML = `<span class="time">${time}</span> ${mockBadge}${text}`;
       
       if (hideDashboardEvents && isNoise) {
         el.style.display = 'none';
@@ -1536,10 +1644,24 @@
     // ─── Goal: Revert Mocks ───
     function revertMockSubs() {
       if (mockCount === 0) return;
-      sendAction('goals_revert_mocks');
-      logEvent(`↩ Reverting ${mockCount} mock subs`);
+      
+      const revertedAmount = mockCount;
+      const newCalculatedCount = Math.max(0, currentGoalCount - revertedAmount);
+      
+      // Immediate local update for responsiveness
+      currentGoalCount = newCalculatedCount;
+      renderGoalsSummary();
+
+      sendAction('goals_revert_mocks', { 
+        amount: revertedAmount,
+        overrideCount: newCalculatedCount
+      });
+      
+      logEvent(`↩ Reverting ${revertedAmount} mock subs`);
+      
       // Remove all mock/test event items from the log
       document.querySelectorAll('.mock-event').forEach(el => el.remove());
+      
       mockCount = 0;
       document.getElementById('mock-count').innerText = '0 mocked';
     }

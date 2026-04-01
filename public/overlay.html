@@ -193,11 +193,27 @@
       box-shadow: 0 0 50px rgba(83,252,24,0.15);
       min-width: 320px;
     }
+    #sync-indicator {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      width: 6px;
+      height: 6px;
+      background: rgba(83,252,24,0.1);
+      border-radius: 50%;
+      z-index: 1000;
+      transition: background 0.3s, box-shadow 0.3s;
+    }
+    #sync-indicator.active {
+      background: #53FC18;
+      box-shadow: 0 0 8px #53FC18;
+    }
   </style>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div id="overlay-container"></div>
+  <div id="sync-indicator" title="Sync Status"></div>
 
   <script>
     const pathParts = window.location.pathname.split('/');
@@ -227,17 +243,15 @@
     // ─── Realtime & Initialization ───
     async function init() {
       try {
-        // Fetch Supabase Config
         const confRes = await fetch('/api/supabase-config');
         const conf = await confRes.json();
         supabaseClient = window.supabase.createClient(conf.url, conf.anonKey);
 
-        // Fetch Initial State
         const stateRes = await fetch('/api/state/' + userId);
         const stateData = await stateRes.json();
-        applyInitialState(stateData);
-
-        connectRealtime();
+        
+        // Consolidate initial state from DB
+        syncState(stateData.overlay?.config || stateData.overlay || {});
         
         // Start local ticker
         setInterval(() => {
@@ -246,64 +260,93 @@
             if (elementVisibility.countdown) renderCountdown(currentTimerMs);
           }
         }, 100);
+
+        connectRealtime();
       } catch (err) {
         console.error('Failed to init overlay:', err);
       }
     }
 
-    function applyInitialState(state) {
-      if (state.overlay && state.overlay.elements) {
-        Object.keys(state.overlay.elements).forEach(el => {
-          if (state.overlay.elements[el].visible !== undefined) {
-            elementVisibility[el] = state.overlay.elements[el].visible;
-            toggleElementVisibility(el, elementVisibility[el]);
+    function syncState(config) {
+      if (!config) return;
+
+      // 1. Elements (Visibility/Position)
+      if (config.elements) {
+        Object.keys(config.elements).forEach(el => {
+          const cfg = config.elements[el];
+          if (cfg.visible !== undefined) {
+            elementVisibility[el] = cfg.visible;
+            toggleElementVisibility(el, cfg.visible);
           }
-          if (state.overlay.elements[el].position) {
-            setElementPosition(el, state.overlay.elements[el].position.x, state.overlay.elements[el].position.y);
+          if (cfg.position) {
+            setElementPosition(el, cfg.position.x, cfg.position.y);
           }
         });
       }
+
+      // 2. Session Data (Countdown/Goals/Roulette)
+      const session = config.session || {};
       
-      if (state.countdown) {
-        timerRunning = state.countdown.running;
-        currentTimerMs = state.countdown.currentMs;
-        timerEndTime = state.countdown.endTime;
+      if (session.countdown) {
+        timerRunning = session.countdown.running;
+        timerEndTime = session.countdown.endTime;
+        currentTimerMs = session.countdown.currentMs;
         if (elementVisibility.countdown) renderCountdown(currentTimerMs);
       }
-      
-      if (state.goals) {
-        currentGoalCount = state.goals.currentCount || 0;
-        goalsList = state.goals.list || [];
+
+      if (session.goals) {
+        currentGoalCount = session.goals.currentCount || 0;
+        goalsList = session.goals.list || [];
         if (elementVisibility.goalBar) renderCurrentGoal();
       }
-      
-      if (state.roulette && state.roulette.slices) {
-        rouletteSlices = state.roulette.slices;
-        if (elementVisibility.roulette) drawRouletteWheel();
+
+      if (session.roulette) {
+        rouletteSlices = session.roulette.slices || [];
+        // Note: We don't auto-spin here, that's handled by specific events
+      }
+
+      // Sync indicator flash
+      const ind = document.getElementById('sync-indicator');
+      if (ind) {
+        ind.classList.add('active');
+        setTimeout(() => ind.classList.remove('active'), 800);
       }
     }
 
     function connectRealtime() {
-      const channelName = 'overlay:' + userId;
-      realtimeChannel = supabaseClient.channel(channelName);
-      
-      realtimeChannel.on('broadcast', { event: '*' }, (payload) => {
-        handleMessage({ type: payload.event, data: payload.payload });
-      });
+      // 1. Listen for Database Changes (Reliable Fallback)
+      supabaseClient
+        .channel('db-sync')
+        .on('postgres_changes', { 
+          event: 'UPDATE', 
+          schema: 'public', 
+          table: 'overlay_configs', 
+          filter: `user_id=eq.${userId}` 
+        }, (payload) => {
+          console.log('[DB] State Change detected');
+          syncState(payload.new.config);
+        })
+        .subscribe();
 
-      realtimeChannel.subscribe();
+      // 2. Listen for Broadcasts (Low Latency)
+      realtimeChannel = supabaseClient.channel('overlay:' + userId);
+      realtimeChannel
+        .on('broadcast', { event: '*' }, (payload) => {
+          handleMessage({ type: payload.event, data: payload.payload });
+        })
+        .subscribe();
     }
 
     function handleMessage(msg) {
       switch (msg.type) {
         case 'state:update':
-          handleStateUpdate(msg.data);
-          break;
-        case 'state:batch_update':
-          msg.data.updates.forEach(u => handleStateUpdate(u));
-          break;
-        case 'alert:fire':
-          renderAlert(msg.data);
+          // Handled by DB sync too, but for speed:
+          if (msg.data.path && msg.data.value !== undefined) {
+             const keys = msg.data.path.split('.');
+             if (keys[0] === 'elements') {
+                handleStateUpdate(msg.data);
+             }
+          }
           break;
         case 'countdown:update':
           currentTimerMs = msg.data.currentMs;
@@ -318,38 +361,28 @@
           timerEndTime = msg.data.endTime;
           if (elementVisibility.countdown) renderCountdown(currentTimerMs);
           break;
-        case 'countdown:zero':
-          renderTimeZero();
-          break;
         case 'goal:update':
           currentGoalCount = msg.data.currentCount;
           if (elementVisibility.goalBar) renderCurrentGoal();
           break;
-        case 'goal:reached':
-          handleGoalReached(msg.data.goalName);
-          break;
-        case 'goal:list':
-          goalsList = msg.data.goals;
-          renderCurrentGoal();
-          break;
-        case 'roulette:update':
-          rouletteSlices = msg.data.slices;
-          if (elementVisibility.roulette) drawRouletteWheel();
-          break;
         case 'roulette:spin':
-          if (elementVisibility.roulette) {
-            showRouletteWheel();
-            // Delay the spin slightly so the fade-in finishes
+          elementVisibility.roulette = true; 
+          const rc = ensureRouletteContainer();
+          rc.style.display = 'block';
+          rc.classList.remove('fade-out');
+          rouletteSlices = msg.data.slices || rouletteSlices;
+          
+          showRouletteWheel();
+          setTimeout(() => {
+            animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
+            // Pre-set result in 7s
             setTimeout(() => {
-              animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
-            }, 150);
-          }
+                showRouletteResult(msg.data.winner);
+            }, msg.data.duration);
+          }, 150);
           break;
-        case 'roulette:result':
-          if (elementVisibility.roulette) {
-            showRouletteResult(msg.data.result);
-            setTimeout(() => hideRouletteWheel(), 1500); // Hide after 1.5 seconds
-          }
+        case 'state_sync_heartbeat':
+          if (msg.data) syncState(msg.data);
           break;
         case 'goal:mock_reverted':
           currentGoalCount = msg.data.newCount || Math.max(0, currentGoalCount - (msg.data.revertedAmount || 0));
