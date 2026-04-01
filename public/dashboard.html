@@ -134,10 +134,26 @@
       </div>
     </div>
     <div class="right-panel">
+      <h3>Countdown Control</h3>
+      <div class="toggle-row">
+        <span>Timer State</span>
+        <div>
+          <button onclick="sendAction('countdown_start')">Start</button>
+          <button onclick="sendAction('countdown_stop')">Stop</button>
+        </div>
+      </div>
+      <div class="toggle-row">
+        <span>Quick Add</span>
+        <div>
+          <button onclick="sendAction('countdown_add', {ms: 60000})">+1m</button>
+          <button onclick="sendAction('countdown_add', {ms: 300000})">+5m</button>
+        </div>
+      </div>
+      <br>
       <h3>Overlay Elements</h3>
       <div class="toggle-row">
         <span>Alert Box</span>
-        <button onclick="toggleElement('alertBox')">Toggle</button>
+        <button onclick="sendAction('toggle', {element: 'alertBox'})">Toggle</button>
       </div>
       <div class="toggle-row">
         <span>Countdown</span>
@@ -219,14 +235,13 @@
       };
     }
 
-    function toggleElement(elementName) {
+    function sendAction(actionType, payloadObj = {}) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      // In a full implementation, we would toggle state visibility via the ws connection.
       ws.send(JSON.stringify({
-        type: 'ping',
-        payload: { action: 'toggle', element: elementName }
+        type: 'ping', // Standard generic control event for now
+        payload: { action: actionType, ...payloadObj }
       }));
-      logEvent(`Toggled element: ${elementName}`);
+      logEvent(`Action sent: ${actionType}`);
     }
 
     function mockKickEvent() {

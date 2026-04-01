@@ -37,12 +37,12 @@
   - [x] Create `lib/alertQueue.js`
 
 ## Phase 4: Countdown + Goals
-- [ ] **Step 11: Countdown timer**
-  - [ ] Create `lib/countdown.js`
-- [ ] **Step 12: Goal system**
-  - [ ] Create `lib/goals.js`
-- [ ] **Step 13: Countdown overlay + dashboard**
-- [ ] **Step 14: Goals overlay + dashboard**
+- [x] **Step 11: Countdown timer**
+  - [x] Create `lib/countdown.js`
+- [x] **Step 12: Goal system**
+  - [x] Create `lib/goals.js`
+- [x] **Step 13: Countdown overlay + dashboard**
+- [x] **Step 14: Goals overlay + dashboard**
 
 ## Phase 5: Co-op System
 - [ ] **Step 15: Co-op session management**

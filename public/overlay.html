@@ -76,23 +76,95 @@
         renderAlert(msg.data);
       } else if (msg.type === 'coop:notification') {
         renderCoopNotification(msg.data);
+      } else if (msg.type === 'countdown:tick' || msg.type === 'countdown:update') {
+        renderCountdown(msg.data.currentMs);
+        if (msg.data.addedMs) renderTimeChip(msg.data.addedMs, msg.data.source);
+      } else if (msg.type === 'countdown:zero') {
+        renderTimeZero();
+      } else if (msg.type === 'goal:update') {
+        renderGoal(msg.data.currentCount);
+      } else if (msg.type === 'goal:reached') {
+        renderGoalReached(msg.data.goalName);
       }
     }
 
-    function renderOverlay() {
-      // Basic element renderer mechanism
-      // Will diff the state.elements object and update DOM Nodes
-      console.log('State updated, rendering...', state);
+    function renderCountdown(ms) {
+       let cd = document.getElementById('cd-display');
+       if(!cd) {
+           cd = document.createElement('div');
+           cd.id = 'cd-display';
+           cd.className = 'overlay-element gpu-accel';
+           cd.style.top = '20px';
+           cd.style.left = '20px';
+           cd.style.fontSize = '48px';
+           cd.style.color = '#fff';
+           cd.style.fontFamily = 'monospace';
+           cd.style.fontWeight = 'bold';
+           cd.style.textShadow = '0px 0px 4px #000';
+           document.getElementById('overlay-container').appendChild(cd);
+       }
+       if (cd.innerText === "TIME'S UP") cd.className = 'overlay-element gpu-accel';
+       
+       const date = new Date(ms);
+       const h = String(Math.floor(ms / 3600000)).padStart(2, '0');
+       const m = String(date.getUTCMinutes()).padStart(2, '0');
+       const s = String(date.getUTCSeconds()).padStart(2, '0');
+       cd.innerText = `${h}:${m}:${s}`;
+       
+       if (ms <= 60000) cd.style.color = '#ff3333';
+       else cd.style.color = '#fff';
     }
     
-    function renderAlert(alertData) {
-      // Stub for alert rendering
-      console.log('Alert fired:', alertData);
+    function renderTimeChip(addedMs, source) {
+       const str = `+${addedMs/1000}s`;
+       const c = document.createElement('div');
+       c.className = 'overlay-element anim-slide-up';
+       c.innerText = str;
+       c.style.top = '70px';
+       c.style.left = '20px';
+       c.style.color = '#53FC18';
+       c.style.fontWeight = 'bold';
+       document.getElementById('overlay-container').appendChild(c);
+       setTimeout(() => {
+           c.className = 'overlay-element anim-slide-up-out';
+           setTimeout(() => c.remove(), 400);
+       }, 3000);
     }
     
-    function renderCoopNotification(notifData) {
-      // Stub for co-op notification
-      console.log('Coop Notification:', notifData);
+    function renderTimeZero() {
+       const cd = document.getElementById('cd-display');
+       if (cd) {
+           cd.innerText = "TIME'S UP";
+           cd.className = 'overlay-element anim-scale-pop';
+       }
+    }
+
+    function renderGoal(count) {
+       let gl = document.getElementById('goal-display');
+       if(!gl) {
+           gl = document.createElement('div');
+           gl.id = 'goal-display';
+           gl.className = 'overlay-element gpu-accel';
+           gl.style.top = '120px';
+           gl.style.left = '20px';
+           gl.style.padding = '10px';
+           gl.style.backgroundColor = 'rgba(0,0,0,0.5)';
+           gl.style.borderRadius = '8px';
+           gl.style.color = '#fff';
+           gl.style.fontWeight = 'bold';
+           gl.style.minWidth = '200px';
+           document.getElementById('overlay-container').appendChild(gl);
+       }
+       // Hardcoded targetCount placeholder for styling demo
+       gl.innerHTML = `<div>Goal</div><div style="color:#53FC18; font-size: 24px;">${count} / Target</div>`;
+    }
+
+    function renderGoalReached(name) {
+       let gl = document.getElementById('goal-display');
+       if (gl) {
+         gl.className = 'overlay-element anim-celebrate';
+         setTimeout(() => { gl.className = 'overlay-element gpu-accel'; }, 1000);
+       }
     }
 
     connectWs();
