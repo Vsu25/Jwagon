@@ -73,7 +73,7 @@ async function broadcastRealtime(channelName, eventName, payload) {
 }
 
 // Legacy-compatible broadcast wrapper used by lib modules
-async async function broadcast(messageObj, targetUserIds = null) {
+async function broadcast(messageObj, targetUserIds = null) {
   if (!targetUserIds || targetUserIds.length === 0) return;
   const promises = targetUserIds.map(userId => {
     // Note: We use the exact channel name clients listen to (overlay:user-id)
