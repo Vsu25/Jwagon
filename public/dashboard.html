@@ -657,10 +657,6 @@
 
         <h3>Overlay Elements</h3>
         <div class="toggle-item">
-          <span>Alert Box</span>
-          <button id="toggle-alertBox" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('alertBox')">ON</button>
-        </div>
-        <div class="toggle-item">
           <span>Countdown</span>
           <button id="toggle-countdown" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('countdown')">ON</button>
         </div>
@@ -670,7 +666,7 @@
         </div>
         <div class="toggle-item">
           <span>Roulette</span>
-          <button id="toggle-roulette" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('roulette')">ON</button>
+          <button id="toggle-roulette" class="btn btn-sm" onclick="toggleOverlayElement('roulette')">OFF</button>
         </div>
       </div>
     </div>
@@ -682,7 +678,6 @@
         <div id="prev-countdown" class="preview-el" data-element="countdown" style="position:absolute; top:3%; left:2%; cursor:move; padding:4px 10px; border:1px dashed var(--accent); border-radius:4px; font-size:0.7rem; color:var(--accent); background:rgba(83,252,24,0.08); user-select:none;">⏱ Timer</div>
         <div id="prev-goalBar" class="preview-el" data-element="goalBar" style="position:absolute; top:12%; left:2%; cursor:move; padding:4px 10px; border:1px dashed #ff9900; border-radius:4px; font-size:0.7rem; color:#ff9900; background:rgba(255,153,0,0.08); user-select:none;">🎯 Goals</div>
         <div id="prev-roulette" class="preview-el" data-element="roulette" style="position:absolute; top:18%; right:5%; cursor:move; padding:4px 10px; border:1px dashed #3399ff; border-radius:4px; font-size:0.7rem; color:#3399ff; background:rgba(51,153,255,0.08); user-select:none;">🎰 Roulette</div>
-        <div id="prev-alertBox" class="preview-el" data-element="alertBox" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); cursor:move; padding:4px 10px; border:1px dashed #ff4444; border-radius:4px; font-size:0.7rem; color:#ff4444; background:rgba(255,68,68,0.08); user-select:none;">📢 Alerts</div>
         <div style="position:absolute; bottom:8px; left:12px; font-size:0.65rem; color:var(--text-muted);">Drag elements to reposition on overlay</div>
         <button id="apply-positions-btn" class="btn btn-accent btn-sm" onclick="applyPositions()" style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); display:none; font-size:0.7rem; padding:4px 16px; z-index:20;">✓ Apply Positions</button>
         <a href="#" id="preview-link" target="_blank" style="position:absolute; bottom:8px; right:12px; color:var(--accent); text-decoration:none; font-size:0.75rem;">Open Overlay ↗</a>
@@ -1161,7 +1156,6 @@
             goals: { currentCount: currentGoalCount, list: goalsList },
             roulette: { slices: rouletteSlices },
             visibility: { 
-              alertBox: document.getElementById('toggle-alertBox').innerText === 'ON',
               countdown: document.getElementById('toggle-countdown').innerText === 'ON',
               goalBar: document.getElementById('toggle-goalBar').innerText === 'ON',
               roulette: document.getElementById('toggle-roulette').innerText === 'ON'

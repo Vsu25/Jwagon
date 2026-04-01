@@ -176,23 +176,6 @@
     .result-appear { animation: resultPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
     @keyframes resultPop { from { opacity:0; transform: scale(0.6); } to { opacity:1; transform: scale(1); } }
 
-    /* ── Alert Box ── */
-    #alert-box {
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.85);
-      border: 2px solid #53FC18;
-      border-radius: 14px;
-      padding: 24px 44px;
-      text-align: center;
-      font-size: 24px;
-      font-weight: 700;
-      color: #fff;
-      display: none;
-      backdrop-filter: blur(12px);
-      box-shadow: 0 0 50px rgba(83,252,24,0.15);
-      min-width: 320px;
-    }
     #sync-indicator {
       position: fixed;
       bottom: 10px;
@@ -223,7 +206,7 @@
     let realtimeChannel;
 
     // ─── Overlay State ───
-    let elementVisibility = { alertBox: true, countdown: true, goalBar: true, roulette: true };
+    let elementVisibility = { countdown: true, goalBar: true, roulette: false };
     
     let timerRunning = false;
     let currentTimerMs = 3600000; // Default 1 hour
@@ -324,7 +307,7 @@
           msg.data.updates.forEach(u => handleStateUpdate(u));
           break;
         case 'alert:fire':
-          renderAlert(msg.data);
+          // AlertBox removed — skip alerts to save Vercel function calls
           break;
         case 'countdown:update':
           currentTimerMs = msg.data.currentMs;
@@ -439,13 +422,13 @@
     }
 
     function toggleElementVisibility(elName, visible) {
-      const map = { countdown: 'cd-display', goalBar: 'goal-display', roulette: 'roulette-container', alertBox: 'alert-box' };
+      const map = { countdown: 'cd-display', goalBar: 'goal-display', roulette: 'roulette-container' };
       const el = document.getElementById(map[elName]);
       if (el) el.style.display = visible ? '' : 'none';
     }
 
     function setElementPosition(elName, x, y) {
-      const map = { countdown: 'cd-display', goalBar: 'goal-display', roulette: 'roulette-container', alertBox: 'alert-box' };
+      const map = { countdown: 'cd-display', goalBar: 'goal-display', roulette: 'roulette-container' };
       const el = document.getElementById(map[elName]);
       if (el) { el.style.left = x + '%'; el.style.top = y + '%'; el.style.right = 'auto'; }
     }
@@ -771,25 +754,8 @@
       }, 1500);
     }
 
-    // ─── Alerts ───
-    function renderAlert(data) {
-      if (!elementVisibility.alertBox) return;
-      let ab = document.getElementById('alert-box');
-      if (!ab) {
-        ab = document.createElement('div');
-        ab.id = 'alert-box';
-        ab.className = 'overlay-element';
-        container.appendChild(ab);
-      }
-      ab.style.display = 'block';
-      ab.className = `overlay-element ${data.anim || 'anim-scale-pop'}`;
-      ab.innerText = data.text;
-
-      setTimeout(() => {
-        ab.className = 'overlay-element';
-        ab.style.display = 'none';
-      }, data.duration || 4000);
-    }
+    // ─── Alerts (disabled — AlertBox removed to save Vercel function calls) ───
+    // renderAlert is a no-op now
 
     function renderCoopNotification(data) {
       const notif = document.createElement('div');
