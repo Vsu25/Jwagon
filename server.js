@@ -35,16 +35,58 @@ app.use(express.static(path.join(__dirname, 'public')));
 const { setupAuthRoutes } = require('./lib/auth');
 setupAuthRoutes(app);
 
-// Basic routes
-app.get('/login', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+// ─── Gateway (Access Wall) ───
+app.get('/gate', (req, res) => {
+  // If already past the gate, go straight to login
+  if (req.session.gatePassed) return res.redirect('/login');
+  res.sendFile(path.join(__dirname, 'public', 'gate.html'));
 });
+
+app.post('/api/gate/verify', (req, res) => {
+  const pin = req.body.pin;
+  const correctPin = process.env.GATEWAY_PIN;
+  
+  if (!correctPin) {
+    // No PIN configured — let everyone through
+    req.session.gatePassed = true;
+    return res.redirect('/login');
+  }
+  
+  if (pin === correctPin) {
+    req.session.gatePassed = true;
+    return res.redirect('/login');
+  }
+  
+  // Wrong PIN
+  res.redirect('/gate?err=1');
+});
+
+// Gateway middleware — blocks access to login/dashboard without the PIN
+function requireGate(req, res, next) {
+  if (!process.env.GATEWAY_PIN) return next(); // No PIN set = no gate
+  if (req.session?.gatePassed) return next();
+  return res.redirect('/gate');
+}
 
 // Auth Middleware wrapper
 function requireAuth(req, res, next) {
   if (!req.session?.userId) return res.redirect('/login');
   next();
 }
+
+// Basic routes
+app.get('/', (req, res) => res.redirect('/gate'));
+
+app.get('/login', requireGate, (req, res) => {
+  // If already logged in, go to dashboard
+  if (req.session?.userId) return res.redirect('/dashboard');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// Protect auth/kick behind the gate too
+app.get('/api/auth/kick-gate', requireGate, (req, res) => {
+  res.redirect('/api/auth/kick');
+});
 
 app.get('/api/me', requireAuth, (req, res) => {
   res.json({
@@ -54,12 +96,12 @@ app.get('/api/me', requireAuth, (req, res) => {
   });
 });
 
-app.get('/dashboard', requireAuth, (req, res) => {
+app.get('/dashboard', requireGate, requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/overlay/:userId', (req, res) => {
-  // OBS Source, no auth required
+  // OBS Source — never gated, no auth required
   res.sendFile(path.join(__dirname, 'public', 'overlay.html'));
 });
 

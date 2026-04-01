@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OLAY HUB — Access</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0a0a0a;
+      color: #e0e0e0;
+      font-family: 'Inter', sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Animated background */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse at 20% 50%, rgba(83, 252, 24, 0.04) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(51, 153, 255, 0.03) 0%, transparent 50%),
+        radial-gradient(ellipse at 50% 80%, rgba(255, 68, 68, 0.02) 0%, transparent 50%);
+      animation: bgShift 12s ease-in-out infinite alternate;
+      z-index: 0;
+    }
+
+    @keyframes bgShift {
+      0% { opacity: 0.6; }
+      100% { opacity: 1; }
+    }
+
+    .gate-card {
+      position: relative;
+      z-index: 1;
+      width: 380px;
+      background: #141414;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 48px 36px;
+      text-align: center;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(83, 252, 24, 0.05);
+    }
+
+    .gate-lock {
+      font-size: 3rem;
+      margin-bottom: 8px;
+      filter: grayscale(0.3);
+    }
+
+    .gate-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .gate-title span { color: #53FC18; }
+
+    .gate-subtitle {
+      font-size: 0.78rem;
+      color: #666;
+      margin-bottom: 32px;
+    }
+
+    .input-group {
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 14px 16px;
+      padding-right: 44px;
+      background: #1c1c1c;
+      border: 1px solid #2a2a2a;
+      border-radius: 10px;
+      color: #f0f0f0;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      letter-spacing: 2px;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .input-group input:focus {
+      border-color: #53FC18;
+      box-shadow: 0 0 0 3px rgba(83, 252, 24, 0.1);
+    }
+
+    .input-group input.error {
+      border-color: #ff4444;
+      box-shadow: 0 0 0 3px rgba(255, 68, 68, 0.1);
+      animation: shake 0.4s ease;
+    }
+
+    .toggle-vis {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #555;
+      cursor: pointer;
+      font-size: 1.1rem;
+      padding: 4px;
+      transition: color 0.2s;
+    }
+    .toggle-vis:hover { color: #aaa; }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      50% { transform: translateX(6px); }
+      75% { transform: translateX(-4px); }
+    }
+
+    .btn-unlock {
+      width: 100%;
+      padding: 14px;
+      background: linear-gradient(135deg, #53FC18, #3ab812);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.15s, box-shadow 0.2s;
+      letter-spacing: 0.5px;
+    }
+    .btn-unlock:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(83, 252, 24, 0.2);
+    }
+    .btn-unlock:active {
+      transform: translateY(0);
+    }
+
+    .error-msg {
+      color: #ff4444;
+      font-size: 0.78rem;
+      margin-top: 12px;
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .error-msg.visible { opacity: 1; }
+
+    .footer {
+      margin-top: 28px;
+      font-size: 0.7rem;
+      color: #444;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="gate-card">
+    <div class="gate-lock">🔐</div>
+    <div class="gate-title">OLAY<span>HUB</span></div>
+    <div class="gate-subtitle">Authorized access only</div>
+
+    <form id="gate-form" method="POST" action="/api/gate/verify">
+      <div class="input-group">
+        <input 
+          type="password" 
+          id="pin-input" 
+          name="pin" 
+          placeholder="Enter access code" 
+          autocomplete="off"
+          autofocus
+          required
+        >
+        <button type="button" class="toggle-vis" onclick="togglePassword()" title="Show/hide">👁</button>
+      </div>
+
+      <button type="submit" class="btn-unlock">🔓 Unlock Access</button>
+    </form>
+
+    <div id="error-msg" class="error-msg">Incorrect access code. Try again.</div>
+
+    <div class="footer">
+      Contact the server administrator if you need access.
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('gate-form');
+    const input = document.getElementById('pin-input');
+    const errorMsg = document.getElementById('error-msg');
+
+    // Check URL for ?err=1
+    if (new URLSearchParams(window.location.search).get('err') === '1') {
+      input.classList.add('error');
+      errorMsg.classList.add('visible');
+      setTimeout(() => {
+        input.classList.remove('error');
+      }, 600);
+    }
+
+    // Remove error state on new input
+    input.addEventListener('input', () => {
+      input.classList.remove('error');
+      errorMsg.classList.remove('visible');
+    });
+
+    function togglePassword() {
+      input.type = input.type === 'password' ? 'text' : 'password';
+    }
+
+    // Auto-submit on Enter is handled by form
+  </script>
+</body>
+</html>

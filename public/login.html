@@ -3,55 +3,133 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>StreamDeck Login</title>
+  <title>OLAY HUB — Sign In</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      background-color: #0D0D0D;
-      color: white;
+      background: #0a0a0a;
+      color: #e0e0e0;
       font-family: 'Inter', sans-serif;
       display: flex;
-      flex-direction: column;
       align-items: center;
       justify-content: center;
       height: 100vh;
-      margin: 0;
+      overflow: hidden;
     }
-    .login-container {
-      background-color: #1a1a1a;
-      padding: 40px;
-      border-radius: 12px;
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: 
+        radial-gradient(ellipse at 30% 40%, rgba(83, 252, 24, 0.05) 0%, transparent 50%),
+        radial-gradient(ellipse at 70% 60%, rgba(51, 153, 255, 0.03) 0%, transparent 50%);
+      animation: bgPulse 8s ease-in-out infinite alternate;
+      z-index: 0;
+    }
+    @keyframes bgPulse {
+      0% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .login-card {
+      position: relative;
+      z-index: 1;
+      width: 400px;
+      background: #141414;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 48px 36px;
       text-align: center;
-      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(83, 252, 24, 0.05);
     }
+
+    .login-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+    .login-title span { color: #53FC18; }
+
+    .login-subtitle {
+      font-size: 0.8rem;
+      color: #666;
+      margin-bottom: 36px;
+    }
+
+    .badge-verified {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(83, 252, 24, 0.08);
+      border: 1px solid rgba(83, 252, 24, 0.2);
+      color: #53FC18;
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 28px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
     .btn-kick {
-      display: inline-block;
-      background-color: #53FC18;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, #53FC18, #3ab812);
       color: #000;
-      padding: 15px 30px;
-      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 1rem;
+      cursor: pointer;
       text-decoration: none;
-      border-radius: 6px;
-      font-size: 1.1rem;
-      margin-top: 20px;
-      transition: background-color 0.2s;
+      transition: transform 0.15s, box-shadow 0.2s;
+      letter-spacing: 0.3px;
     }
     .btn-kick:hover {
-      background-color: #45d614;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(83, 252, 24, 0.25);
     }
+    .btn-kick:active { transform: translateY(0); }
+    .btn-kick svg {
+      width: 22px;
+      height: 22px;
+    }
+
     .info {
-      margin-top: 20px;
-      font-size: 0.9rem;
-      color: #aaa;
+      margin-top: 24px;
+      font-size: 0.72rem;
+      color: #555;
+      line-height: 1.6;
     }
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="login-container">
-    <h1>StreamDeck</h1>
-    <p>Multi-Streamer OBS Overlay Manager</p>
-    <a href="/api/auth/kick" class="btn-kick">Login with Kick</a>
-    <p class="info">Mods: Use the "Login with Kick" button above. You will be routed to your assigned streamer's dashboard automatically.</p>
+
+  <div class="login-card">
+    <div class="login-title">OLAY<span>HUB</span></div>
+    <div class="login-subtitle">Multi-Streamer OBS Overlay Manager</div>
+
+    <div class="badge-verified">✓ Access Verified</div>
+
+    <a href="/api/auth/kick-gate" class="btn-kick">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3 3h18v18H3V3zm3 3v12h4.5l3-4.5L16.5 18H21V6h-4.5v7.5L13.5 9 10.5 13.5V6H6z"/></svg>
+      Sign in with Kick
+    </a>
+
+    <div class="info">
+      Your Kick account will be used to identify you.<br>
+      Moderators: log in to access channels you manage.
+    </div>
   </div>
+
 </body>
 </html>
