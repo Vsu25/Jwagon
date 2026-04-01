@@ -161,7 +161,6 @@
 
     /* ── Roulette Result Popup ── */
     #roulette-result-popup {
-      top: 510px; right: 40px;
       display: none;
       background: rgba(0,0,0,0.9);
       border: 2px solid #53FC18;
@@ -170,6 +169,7 @@
       text-align: center;
       backdrop-filter: blur(12px);
       box-shadow: 0 0 40px rgba(83,252,24,0.25), 0 0 80px rgba(83,252,24,0.08);
+      /* Will be positioned dynamically by showRouletteResult */
     }
     #roulette-result-popup .result-label { font-size: 11px; color: #53FC18; text-transform: uppercase; letter-spacing: 3px; }
     #roulette-result-popup .result-text { font-size: 28px; font-weight: 800; color: #fff; margin-top: 6px; }
@@ -735,6 +735,7 @@
     }
 
     function showRouletteResult(result) {
+      const rc = document.getElementById('roulette-container');
       let popup = document.getElementById('roulette-result-popup');
       if (!popup) {
         popup = document.createElement('div');
@@ -742,6 +743,19 @@
         popup.className = 'overlay-element';
         container.appendChild(popup);
       }
+      
+      // Position centered below the roulette wheel, aligned with the arrow
+      if (rc) {
+        const rcRect = rc.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const centerX = rcRect.left - containerRect.left + (rcRect.width / 2);
+        const belowY = rcRect.top - containerRect.top + rcRect.height + 16;
+        popup.style.left = centerX + 'px';
+        popup.style.top = belowY + 'px';
+        popup.style.transform = 'translateX(-50%)';
+        popup.style.right = 'auto';
+      }
+      
       popup.style.display = 'block';
       popup.className = 'overlay-element result-appear';
       popup.innerHTML = `

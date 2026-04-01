@@ -684,6 +684,7 @@
         <div id="prev-roulette" class="preview-el" data-element="roulette" style="position:absolute; top:18%; right:5%; cursor:move; padding:4px 10px; border:1px dashed #3399ff; border-radius:4px; font-size:0.7rem; color:#3399ff; background:rgba(51,153,255,0.08); user-select:none;">🎰 Roulette</div>
         <div id="prev-alertBox" class="preview-el" data-element="alertBox" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); cursor:move; padding:4px 10px; border:1px dashed #ff4444; border-radius:4px; font-size:0.7rem; color:#ff4444; background:rgba(255,68,68,0.08); user-select:none;">📢 Alerts</div>
         <div style="position:absolute; bottom:8px; left:12px; font-size:0.65rem; color:var(--text-muted);">Drag elements to reposition on overlay</div>
+        <button id="apply-positions-btn" class="btn btn-accent btn-sm" onclick="applyPositions()" style="position:absolute; bottom:6px; left:50%; transform:translateX(-50%); display:none; font-size:0.7rem; padding:4px 16px; z-index:20;">✓ Apply Positions</button>
         <a href="#" id="preview-link" target="_blank" style="position:absolute; bottom:8px; right:12px; color:var(--accent); text-decoration:none; font-size:0.75rem;">Open Overlay ↗</a>
       </div>
     </div>
@@ -821,17 +822,6 @@
           <button class="btn btn-accent btn-sm" onclick="sendAction('coop_start', {partner: document.getElementById('partner-input').value})">Link</button>
         </div>
         <button class="btn btn-danger btn-sm" onclick="sendAction('coop_stop')" style="width:100%; margin-top:8px;">Unlink Session</button>
-      </div>
-
-      <!-- ── TELEMETRY PANEL ── -->
-      <div class="panel-section" id="telemetry-panel" style="margin-top:auto; border-top:2px solid var(--border); padding-top:16px;">
-        <div class="panel-header" style="margin-bottom:8px;">
-          <span class="panel-title" style="font-size:0.7rem; color:var(--text-muted);">🛰 TELEMETRY & SYNC</span>
-          <button class="btn btn-xs" onclick="sendAction('state_sync_heartbeat')">Force Sync</button>
-        </div>
-        <div id="telemetry-logs" style="height:80px; overflow-y:auto; font-family:'JetBrains Mono'; font-size:10px; color:#555; background:#050505; padding:6px; border-radius:4px; border:1px solid #1a1a1a;">
-          <div>[SYS] Dashboard Initializing...</div>
-        </div>
       </div>
 
     </div>
@@ -1156,25 +1146,37 @@
       }
     }
 
-    // ─── Sync Heartbeat (Dashboard-to-Overlay) ───
-    // Sends the current dashboard state every 10s to ensure the overlay stays aligned
-    setInterval(() => {
-       if (!targetUserId || !realtimeChannel) return;
-       if (document.hidden) return;
+    // ─── Silent Heartbeat (does NOT block buttons) ───
+    async function sendHeartbeat() {
+      if (!targetUserId || !realtimeChannel) return;
+      if (document.hidden) return;
+      try {
+        await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'state_sync_heartbeat',
+            targetUserId,
+            countdown: { currentMs: currentTimerMs, running: timerRunning, endTime: timerEndTime },
+            goals: { currentCount: currentGoalCount, list: goalsList },
+            roulette: { slices: rouletteSlices },
+            visibility: { 
+              alertBox: document.getElementById('toggle-alertBox').innerText === 'ON',
+              countdown: document.getElementById('toggle-countdown').innerText === 'ON',
+              goalBar: document.getElementById('toggle-goalBar').innerText === 'ON',
+              roulette: document.getElementById('toggle-roulette').innerText === 'ON'
+            }
+          })
+        });
+        logEvent('[HB] Sent overlay sync', false, false, true);
+      } catch (e) {
+        logEvent('[HB] FAILED: ' + e.message, false, false, true);
+      }
+    }
 
-       sendAction('state_sync_heartbeat', {
-          countdown: { currentMs: currentTimerMs, running: timerRunning, endTime: timerEndTime },
-          goals: { currentCount: currentGoalCount, list: goalsList },
-          roulette: { slices: rouletteSlices },
-          visibility: { 
-            alertBox: document.getElementById('toggle-alertBox').innerText === 'ON',
-            countdown: document.getElementById('toggle-countdown').innerText === 'ON',
-            goalBar: document.getElementById('toggle-goalBar').innerText === 'ON',
-            roulette: document.getElementById('toggle-roulette').innerText === 'ON'
-          }
-       });
-       logEvent('[HB] Sent overlay sync', false, false, true);
-    }, 10000);
+    // ─── Sync Heartbeat (Dashboard-to-Overlay) ───
+    // Runs silently in the background — never blocks user buttons
+    setInterval(sendHeartbeat, 10000);
 
     // ─── Client-Side Timer Ticker ───
     setInterval(() => {
@@ -1740,6 +1742,8 @@
     }
 
     // ─── Drag & Drop for Preview Canvas ───
+    let pendingPositions = {}; // Buffered positions until user clicks Apply
+
     function initDrag() {
       const frame = document.getElementById('preview-frame');
       const previewEls = frame.querySelectorAll('.preview-el');
@@ -1774,15 +1778,29 @@
           isDragging = false;
           el.style.zIndex = '';
           const rect = frame.getBoundingClientRect();
-          const xPct = ((el.offsetLeft) / rect.width) * 100;
-          const yPct = ((el.offsetTop) / rect.height) * 100;
-          sendAction('set_position', {
-            element: el.dataset.element,
-            x: Math.round(xPct * 100) / 100,
-            y: Math.round(yPct * 100) / 100
-          });
+          const xPct = Math.round(((el.offsetLeft) / rect.width) * 10000) / 100;
+          const yPct = Math.round(((el.offsetTop) / rect.height) * 10000) / 100;
+
+          // Buffer the position — don't send yet
+          pendingPositions[el.dataset.element] = { x: xPct, y: yPct };
+          
+          // Show the Apply button
+          document.getElementById('apply-positions-btn').style.display = 'block';
         });
       });
+    }
+
+    async function applyPositions() {
+      const entries = Object.entries(pendingPositions);
+      if (entries.length === 0) return;
+
+      for (const [element, pos] of entries) {
+        await sendAction('set_position', { element, x: pos.x, y: pos.y });
+      }
+
+      pendingPositions = {};
+      document.getElementById('apply-positions-btn').style.display = 'none';
+      logEvent('✓ Positions applied to overlay');
     }
 
     // ─── Boot ───
@@ -1791,5 +1809,16 @@
       initDrag();
     };
   </script>
+
+  <!-- ─── Fixed Telemetry Panel (bottom-left corner) ─── -->
+  <div id="telemetry-panel" style="position:fixed; bottom:12px; left:12px; width:280px; background:rgba(10,10,10,0.95); border:1px solid #1a1a1a; border-radius:8px; padding:8px 10px; z-index:900; backdrop-filter:blur(8px);">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+      <span style="font-size:0.65rem; color:#555; font-weight:600; letter-spacing:1px;">🛰 TELEMETRY</span>
+      <button class="btn" onclick="sendHeartbeat()" style="font-size:9px; padding:2px 8px; border-radius:3px;">Sync</button>
+    </div>
+    <div id="telemetry-logs" style="height:60px; overflow-y:auto; font-family:'JetBrains Mono',monospace; font-size:9px; color:#444; background:#050505; padding:4px 6px; border-radius:3px; border:1px solid #111;">
+      <div>[SYS] Dashboard Ready</div>
+    </div>
+  </div>
 </body>
 </html>
