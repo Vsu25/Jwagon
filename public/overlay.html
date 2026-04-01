@@ -348,7 +348,7 @@
         case 'roulette:result':
           if (elementVisibility.roulette) {
             showRouletteResult(msg.data.result);
-            setTimeout(() => hideRouletteWheel(), 5000); // Hide after 5 seconds
+            setTimeout(() => hideRouletteWheel(), 1500); // Hide after 1.5 seconds
           }
           break;
         case 'goal:mock_reverted':
