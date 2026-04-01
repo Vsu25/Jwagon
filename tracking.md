@@ -51,7 +51,7 @@
 - [x] **Step 17: Co-op goals sync + cross-notifications**
 
 ## Phase 6: Roulette + Polish
-- [ ] **Step 18: Roulette system**
-  - [ ] Create `lib/roulette.js`
-- [ ] **Step 19: Dashboard panels**
-- [ ] **Step 20: Mobile + deployment**
+- [x] **Step 18: Roulette system**
+  - [x] Create `lib/roulette.js`
+- [x] **Step 19: Dashboard panels**
+- [x] **Step 20: Mobile + deployment**

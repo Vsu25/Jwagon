@@ -85,6 +85,12 @@
         renderGoal(msg.data.currentCount);
       } else if (msg.type === 'goal:reached') {
         renderGoalReached(msg.data.goalName);
+      } else if (msg.type === 'roulette:spin') {
+        renderRouletteSpin(msg.data.targetAngle, msg.data.duration);
+      } else if (msg.type === 'roulette:result') {
+        renderRouletteResult(msg.data.result);
+      } else if (msg.type === 'roulette:update') {
+        renderRouletteDraw(msg.data.slices);
       }
     }
 
@@ -165,6 +171,59 @@
          gl.className = 'overlay-element anim-celebrate';
          setTimeout(() => { gl.className = 'overlay-element gpu-accel'; }, 1000);
        }
+    }
+
+    function renderRouletteDraw(slices) {
+       let rl = document.getElementById('roulette-wheel');
+       if(!rl) {
+           rl = document.createElement('div');
+           rl.id = 'roulette-wheel';
+           rl.className = 'overlay-element gpu-accel';
+           rl.style.top = '100px';
+           rl.style.right = '20px';
+           rl.style.width = '300px';
+           rl.style.height = '300px';
+           rl.style.borderRadius = '50%';
+           rl.style.border = '5px solid #fff';
+           rl.style.boxShadow = '0 0 20px #53FC18';
+           rl.style.transition = 'transform cubic-bezier(0.25, 0.1, 0.25, 1)';
+           document.getElementById('overlay-container').appendChild(rl);
+       }
+       
+       let gradientStr = [];
+       let currentDeg = 0;
+       const degPerSlice = 360 / slices.length;
+       slices.forEach(s => {
+           const endDeg = currentDeg + degPerSlice;
+           gradientStr.push(`${s.color} ${currentDeg}deg ${endDeg}deg`);
+           currentDeg = endDeg;
+       });
+       
+       rl.style.background = `conic-gradient(${gradientStr.join(', ')})`;
+    }
+
+    function renderRouletteSpin(targetAngle, duration) {
+       let rl = document.getElementById('roulette-wheel');
+       if(rl) {
+           rl.style.transitionDuration = `${duration}ms`;
+           rl.style.transform = `rotate(${targetAngle}deg)`;
+       }
+    }
+
+    function renderRouletteResult(resultText) {
+       let pop = document.createElement('div');
+       pop.className = 'overlay-element anim-glitch';
+       pop.style.top = '400px';
+       pop.style.right = '20px';
+       pop.style.fontSize = '32px';
+       pop.style.color = '#fff';
+       pop.style.backgroundColor = '#111';
+       pop.style.padding = '10px 20px';
+       pop.style.border = '2px solid #53FC18';
+       pop.innerText = `Winner: ${resultText}`;
+       document.getElementById('overlay-container').appendChild(pop);
+       
+       setTimeout(() => pop.remove(), 7000);
     }
 
     connectWs();

@@ -101,6 +101,10 @@ wss.on('connection', (ws, req) => {
       // Example basic handler for incoming actions from dashboard UI
       if (data.type === 'ping') {
         ws.send(JSON.stringify({ type: 'pong' }));
+        if (data.payload && data.payload.action) {
+           const { handleCommand } = require('./lib/commandHandler');
+           handleCommand(userId, data.payload);
+        }
       }
     } catch (e) {
       console.error('WS message error:', e);
