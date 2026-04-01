@@ -535,6 +535,37 @@
     }
     .staff-item .name { flex: 1; font-size: 0.85rem; }
 
+    /* ─── Toggle Items ─── */
+    .toggle-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+    }
+    .toggle-item span {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+    }
+
+    /* ─── Sidebar Divider ─── */
+    .sidebar-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    .sidebar-section {
+      padding: 0;
+    }
+    .sidebar-section h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      font-weight: 600;
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -572,15 +603,25 @@
 
     <!-- ─── Left Sidebar: Event Log ─── -->
     <div class="sidebar">
-      <h3>Event Log</h3>
-      <div id="events-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 20px;">
+      <div class="sidebar-section">
+        <h3>Event Log</h3>
+        <div id="events-container" style="max-height: 200px; overflow-y: auto;">
         <div class="event-item" style="color:var(--text-muted);">Waiting for events...</div>
       </div>
+      </div>
 
-      <button class="btn btn-accent btn-sm" onclick="openStaffModal()" style="width:100%; margin-bottom:24px;">👥 Manage Staff & Mods</button>
+      <div class="sidebar-divider"></div>
 
-      <div style="margin-top: 12px;">
-        <h3 style="margin-bottom:12px;">Overlay Elements</h3>
+      <div class="sidebar-section">
+
+      <button class="btn btn-accent btn-sm" onclick="openStaffModal()" style="width:100%; ">👥 Manage Staff & Mods</button>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+
+        <h3>Overlay Elements</h3>
         <div class="toggle-item">
           <span>Alert Box</span>
           <button id="toggle-alertBox" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('alertBox')">ON</button>
@@ -863,7 +904,12 @@
         targetUserId = currentUser.userId;
 
         // Update Header UI
-        document.getElementById('user-display-name').innerText = currentUser.kickUserId || 'Unknown';
+        document.getElementById('user-display-name').innerText = currentUser.kickUsername || 'Unknown';
+        if (currentUser.kickAvatar) {
+          document.getElementById('user-display-avatar').src = currentUser.kickAvatar;
+        } else {
+          document.getElementById('user-display-avatar').style.display = 'none';
+        }
         document.getElementById('user-role-badge').innerText = currentUser.role === 'admin' ? 'SYSTEM ADMIN' : 'STREAMER';
         
         // Load managed channels for the switcher

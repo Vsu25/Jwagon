@@ -88,12 +88,37 @@ app.get('/api/auth/kick-gate', requireGate, (req, res) => {
   res.redirect('/api/auth/kick');
 });
 
-app.get('/api/me', requireAuth, (req, res) => {
-  res.json({
-    userId: req.session.userId,
-    kickUserId: req.session.kickUserId,
-    role: req.session.role
-  });
+app.get('/api/me', requireAuth, async (req, res) => {
+  try {
+    let username = 'Unknown';
+    let avatar = '';
+    if (supabase) {
+      const { data } = await supabase
+        .from('users')
+        .select('kick_username, kick_avatar')
+        .eq('id', req.session.userId)
+        .single();
+      if (data) {
+        username = data.kick_username || 'Unknown';
+        avatar = data.kick_avatar || '';
+      }
+    }
+    res.json({
+      userId: req.session.userId,
+      kickUserId: req.session.kickUserId,
+      kickUsername: username,
+      kickAvatar: avatar,
+      role: req.session.role
+    });
+  } catch (err) {
+    res.json({
+      userId: req.session.userId,
+      kickUserId: req.session.kickUserId,
+      kickUsername: 'Unknown',
+      kickAvatar: '',
+      role: req.session.role
+    });
+  }
 });
 
 app.get('/dashboard', requireGate, requireAuth, (req, res) => {
