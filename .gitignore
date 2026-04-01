@@ -1,0 +1,4 @@
+node_modules/
+.env
+*.md
+StreamDeck-PRD-v3.pdf
