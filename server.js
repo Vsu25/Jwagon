@@ -40,31 +40,46 @@ const supabase = require('./lib/supabase');
  * Channel name format: overlay:{userId}
  */
 async function broadcastRealtime(channelName, eventName, payload) {
-  if (!supabase) {
-    console.warn('Supabase not configured, cannot broadcast:', eventName);
-    return;
-  }
-  try {
-    const channel = supabase.channel(channelName);
-    await channel.send({
-      type: 'broadcast',
-      event: eventName,
-      payload: payload
+  if (!supabase) return Promise.resolve();
+  return new Promise((resolve) => {
+    // Generate a unique client instance for this broadcast so we don't conflict with existing channels in a warm lambda
+    const channel = supabase.channel(channelName + '-bcast-' + Date.now() + Math.floor(Math.random()*1000));
+    channel.subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        try {
+          await channel.send({
+            type: 'broadcast',
+            event: eventName,
+            payload: payload
+          });
+        } catch (e) {
+          console.error('Realtime broadcast error:', e.message);
+        } finally {
+          supabase.removeChannel(channel);
+          resolve();
+        }
+      } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+        supabase.removeChannel(channel);
+        resolve();
+      }
     });
-    // Unsubscribe immediately — serverless, no persistent connection
-    supabase.removeChannel(channel);
-  } catch (err) {
-    console.error('Realtime broadcast error:', err.message);
-  }
+
+    // Timeout safety
+    setTimeout(() => {
+      supabase.removeChannel(channel);
+      resolve();
+    }, 2000);
+  });
 }
 
 // Legacy-compatible broadcast wrapper used by lib modules
-// Matches the old signature: broadcast(messageObj, targetUserIds)
-function broadcast(messageObj, targetUserIds = null) {
+async async function broadcast(messageObj, targetUserIds = null) {
   if (!targetUserIds || targetUserIds.length === 0) return;
-  targetUserIds.forEach(userId => {
-    broadcastRealtime(`overlay:${userId}`, messageObj.type, messageObj.data || {});
+  const promises = targetUserIds.map(userId => {
+    // Note: We use the exact channel name clients listen to (overlay:user-id)
+    return broadcastRealtime(`overlay:${userId}`, messageObj.type, messageObj.data || {});
   });
+  await Promise.allSettled(promises);
 }
 
 // ─── Gateway (Access Wall) ───

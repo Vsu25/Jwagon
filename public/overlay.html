@@ -416,11 +416,11 @@
       
       const c = document.createElement('div');
       c.innerText = `+${addedMs/1000}s`;
-      c.style.cssText = 'position:absolute; top: -30px; right: 0; color:#53FC18; font-weight:bold; font-size:20px; text-shadow:0 2px 6px rgba(0,0,0,0.5); animation:chipSlide 2.5s ease forwards; z-index:100;';
+      c.style.cssText = 'position:absolute; top: -30px; right: 0; color:#53FC18; font-weight:bold; font-size:20px; text-shadow:0 2px 6px rgba(0,0,0,0.5); animation:chipSlide 4.5s ease forwards; z-index:100;';
       
       // Append inside the CD container directly so it flows with its position
       cd.appendChild(c);
-      setTimeout(() => c.remove(), 2500);
+      setTimeout(() => c.remove(), 4500);
     }
 
     function renderTimeZero() {

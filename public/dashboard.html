@@ -1306,7 +1306,7 @@
       isSpinning = true;
       document.getElementById('spin-btn').disabled = true;
       document.getElementById('result-banner').style.display = 'none';
-      sendAction('roulette_spin');
+      sendAction('roulette_spin', { slices: rouletteSlices });
     }
 
     function animateWheelSpin(targetAngle, duration) {
