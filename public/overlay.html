@@ -194,6 +194,7 @@
       min-width: 320px;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
   <div id="overlay-container"></div>
@@ -202,12 +203,15 @@
     const pathParts = window.location.pathname.split('/');
     const userId = pathParts[pathParts.length - 1];
 
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws?userId=${userId}&role=viewer`;
-    let ws;
+    let supabaseClient;
+    let realtimeChannel;
 
     // ─── Overlay State ───
     let elementVisibility = { alertBox: true, countdown: true, goalBar: true, roulette: true };
+    
+    let timerRunning = false;
+    let currentTimerMs = 0;
+    let timerEndTime = null;
 
     let goalsList = [
       { id: '1', name: 'Play Horror Game', type: 'subs', targetCount: 10 },
@@ -215,21 +219,79 @@
     ];
     let currentGoalCount = 0;
     let currentGoalIndex = 0;
-    let goalsCumulative = true;
     let rouletteSlices = [];
     let currentRotation = 0;
     let rouletteHideTimer = null;
     const container = document.getElementById('overlay-container');
 
-    // ─── WebSocket ───
-    function connectWs() {
-      ws = new WebSocket(wsUrl);
-      ws.onopen = () => console.log('Overlay WS Connected');
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        handleMessage(msg);
-      };
-      ws.onclose = () => setTimeout(connectWs, 2000);
+    // ─── Realtime & Initialization ───
+    async function init() {
+      try {
+        // Fetch Supabase Config
+        const confRes = await fetch('/api/supabase-config');
+        const conf = await confRes.json();
+        supabaseClient = window.supabase.createClient(conf.url, conf.anonKey);
+
+        // Fetch Initial State
+        const stateRes = await fetch('/api/state/' + userId);
+        const stateData = await stateRes.json();
+        applyInitialState(stateData);
+
+        connectRealtime();
+        
+        // Start local ticker
+        setInterval(() => {
+          if (timerRunning && timerEndTime) {
+            currentTimerMs = Math.max(0, timerEndTime - Date.now());
+            if (elementVisibility.countdown) renderCountdown(currentTimerMs);
+          }
+        }, 100);
+      } catch (err) {
+        console.error('Failed to init overlay:', err);
+      }
+    }
+
+    function applyInitialState(state) {
+      if (state.overlay && state.overlay.elements) {
+        Object.keys(state.overlay.elements).forEach(el => {
+          if (state.overlay.elements[el].visible !== undefined) {
+            elementVisibility[el] = state.overlay.elements[el].visible;
+            toggleElementVisibility(el, elementVisibility[el]);
+          }
+          if (state.overlay.elements[el].position) {
+            setElementPosition(el, state.overlay.elements[el].position.x, state.overlay.elements[el].position.y);
+          }
+        });
+      }
+      
+      if (state.countdown) {
+        timerRunning = state.countdown.running;
+        currentTimerMs = state.countdown.currentMs;
+        timerEndTime = state.countdown.endTime;
+        if (elementVisibility.countdown) renderCountdown(currentTimerMs);
+      }
+      
+      if (state.goals) {
+        currentGoalCount = state.goals.currentCount || 0;
+        goalsList = state.goals.list || [];
+        if (elementVisibility.goalBar) renderCurrentGoal();
+      }
+      
+      if (state.roulette && state.roulette.slices) {
+        rouletteSlices = state.roulette.slices;
+        if (elementVisibility.roulette) drawRouletteWheel();
+      }
+    }
+
+    function connectRealtime() {
+      const channelName = 'overlay:' + userId;
+      realtimeChannel = supabaseClient.channel(channelName);
+      
+      realtimeChannel.on('broadcast', { event: '*' }, (payload) => {
+        handleMessage({ type: payload.event, data: payload.payload });
+      });
+
+      realtimeChannel.subscribe();
     }
 
     function handleMessage(msg) {
@@ -243,10 +305,18 @@
         case 'alert:fire':
           renderAlert(msg.data);
           break;
-        case 'countdown:tick':
         case 'countdown:update':
-          if (elementVisibility.countdown) renderCountdown(msg.data.currentMs);
-          if (msg.data.addedMs && msg.data.addedMs > 0) renderTimeChip(msg.data.addedMs);
+          currentTimerMs = msg.data.currentMs;
+          timerEndTime = msg.data.endTime;
+          timerRunning = msg.data.running;
+          if (elementVisibility.countdown) renderCountdown(currentTimerMs);
+          if (msg.data.addedMs && msg.data.addedMs !== 0) renderTimeChip(msg.data.addedMs);
+          break;
+        case 'countdown:state':
+          timerRunning = msg.data.running;
+          currentTimerMs = msg.data.currentMs;
+          timerEndTime = msg.data.endTime;
+          if (elementVisibility.countdown) renderCountdown(currentTimerMs);
           break;
         case 'countdown:zero':
           renderTimeZero();
@@ -643,8 +713,7 @@
     }
 
     // ─── Init ───
-    renderCurrentGoal();
-    connectWs();
+    init();
   </script>
 </body>
 </html>

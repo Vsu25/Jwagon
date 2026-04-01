@@ -591,6 +591,7 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body>
 
@@ -891,26 +892,9 @@
   <!-- ═══ SCRIPTS ═══ -->
   <script>
     // ─── State ───
-    let ws;
-    let currentUser;
-    let targetUserId;
-    let timerRunning = false;
-    let currentTimerMs = 3600000;
-    let isSpinning = false;
-    let mockCount = 0;
-
-    let rouletteSlices = [
-      { text: 'Eat Bean Boozled', color: '#ff3333', action: 'Must eat a Bean Boozled jelly bean' },
-      { text: 'Gift 5 Subs', color: '#33cc55', action: 'Gift 5 subs to chat' },
-      { text: '10 Pushups', color: '#3355ff', action: 'Drop and do 10 pushups on cam' },
-      { text: 'Drop Weapon', color: '#ffcc33', action: 'Drop your weapon in-game' }
-    ];
-
-    let goalsList = [
-      { id: '1', name: 'Play Horror Game', type: 'subs', targetCount: 10 },
-      { id: '2', name: 'Dye Hair Blue', type: 'subs', targetCount: 50 }
-    ];
-    let currentGoalCount = 0;
+    let supabaseClient;
+    let realtimeChannel;
+    let timerEndTime = null;
 
     // ─── Init ───
     async function init() {
@@ -919,7 +903,6 @@
         if (!res.ok) throw new Error('Not authenticated');
         currentUser = await res.json();
         
-        // Initial target is self
         targetUserId = currentUser.userId;
 
         // Update Header UI
@@ -931,10 +914,19 @@
         }
         document.getElementById('user-role-badge').innerText = currentUser.role === 'admin' ? 'SYSTEM ADMIN' : 'STREAMER';
         
-        // Load managed channels for the switcher
         fetchManagedChannels();
 
-        connectWs();
+        // Fetch Supabase Config
+        const confRes = await fetch('/api/supabase-config');
+        const conf = await confRes.json();
+        supabaseClient = window.supabase.createClient(conf.url, conf.anonKey);
+
+        // Fetch Initial State
+        const stateRes = await fetch('/api/state/' + targetUserId);
+        const stateData = await stateRes.json();
+        applyInitialState(stateData);
+
+        connectRealtime();
         renderWheel();
         renderSliceList();
         renderGoalsSummary();
@@ -977,9 +969,8 @@
       targetUserId = newTarget;
       logEvent(`🔄 Switched context to: ${select.options[select.selectedIndex].text}`);
       
-      // Reconnect WS with new target
-      if (ws) ws.close();
-      connectWs();
+      // Reconnect Realtime
+      connectRealtime();
       
       // Update UI role badge
       const badge = document.getElementById('user-role-badge');
@@ -992,35 +983,65 @@
       }
     }
 
-    // ─── WebSocket ───
-    function connectWs() {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws?userId=${targetUserId}&role=streamer`;
-      ws = new WebSocket(wsUrl);
-
-      ws.onopen = () => {
-        document.getElementById('conn-status').classList.add('online');
-      };
-
-      ws.onmessage = (event) => {
-        const msg = JSON.parse(event.data);
-        handleWsMessage(msg);
-      };
-
-      ws.onclose = () => {
-        document.getElementById('conn-status').classList.remove('online');
-        setTimeout(connectWs, 2000);
-      };
+    // ─── Supabase Realtime ───
+    function applyInitialState(state) {
+      if (state.countdown) {
+        timerRunning = state.countdown.running;
+        currentTimerMs = state.countdown.currentMs;
+        timerEndTime = state.countdown.endTime;
+        updateTimerUI();
+        renderTimerDisplay();
+      }
+      if (state.goals) {
+        currentGoalCount = state.goals.currentCount || 0;
+        goalsList = state.goals.list || [];
+        renderGoalsSummary();
+      }
+      if (state.roulette && state.roulette.slices) {
+        rouletteSlices = state.roulette.slices;
+        renderSliceList();
+        renderWheel();
+      }
     }
 
-    function handleWsMessage(msg) {
-      if (msg.type === 'countdown:tick' || msg.type === 'countdown:update') {
+    function connectRealtime() {
+      if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+      }
+      
+      const channelName = 'overlay:' + targetUserId;
+      realtimeChannel = supabaseClient.channel(channelName);
+      
+      realtimeChannel.on('broadcast', { event: '*' }, (payload) => {
+        handleRealtimeEvent({ type: payload.event, data: payload.payload });
+      });
+
+      realtimeChannel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('Realtime connected to', channelName);
+          document.getElementById('conn-status').classList.add('online');
+        } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
+          document.getElementById('conn-status').classList.remove('online');
+        }
+      });
+    }
+
+    function handleRealtimeEvent(msg) {
+      if (msg.type === 'countdown:update' || msg.type === 'countdown:tick') {
         currentTimerMs = msg.data.currentMs;
+        timerEndTime = msg.data.endTime;
+        timerRunning = msg.data.running;
         renderTimerDisplay();
-        if (msg.data.addedMs && msg.data.addedMs !== 0) logEvent(`Timer ${msg.data.addedMs > 0 ? '+' : ''}${msg.data.addedMs/1000}s`);
+        updateTimerUI();
+        if (msg.data.addedMs && msg.data.addedMs !== 0) {
+          logEvent(`Timer ${msg.data.addedMs > 0 ? '+' : ''}${msg.data.addedMs/1000}s`);
+        }
       } else if (msg.type === 'countdown:state') {
         timerRunning = msg.data.running;
+        currentTimerMs = msg.data.currentMs;
+        timerEndTime = msg.data.endTime;
         updateTimerUI();
+        renderTimerDisplay();
       } else if (msg.type === 'countdown:zero') {
         logEvent('⏰ Timer reached zero!');
       } else if (msg.type === 'countdown:undo') {
@@ -1057,14 +1078,27 @@
       }
     }
 
-    function sendAction(actionType, payloadObj = {}) {
-      if (!ws || ws.readyState !== WebSocket.OPEN) return;
-      ws.send(JSON.stringify({
-        type: 'ping',
-        payload: { action: actionType, ...payloadObj }
-      }));
-      logEvent(`→ ${actionType}`);
+    async function sendAction(actionType, payloadObj = {}) {
+      try {
+        logEvent(`→ ${actionType}`);
+        await fetch('/api/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: actionType, targetUserId, ...payloadObj })
+        });
+      } catch (err) {
+        console.error('Command failed', err);
+      }
     }
+
+    
+    // ─── Client-Side Timer Ticker ───
+    setInterval(() => {
+      if (timerRunning && timerEndTime) {
+        currentTimerMs = Math.max(0, timerEndTime - Date.now());
+        renderTimerDisplay();
+      }
+    }, 100);
 
     // ─── Timer Functions ───
     function renderTimerDisplay() {

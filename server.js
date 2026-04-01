@@ -2,13 +2,9 @@ require('dotenv').config();
 const express = require('express');
 const session = require('cookie-session');
 const cookieParser = require('cookie-parser');
-const http = require('http');
-const { WebSocketServer } = require('ws');
 const path = require('path');
 
 const app = express();
-const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -17,7 +13,7 @@ app.use(cookieParser());
 // Trust proxy is required for secure cookies behind Vercel's load balancer
 app.set('trust proxy', 1);
 
-// Auth cookie config (from agent.md)
+// Auth cookie config
 const sessionMiddleware = session({
   name: 'session',
   keys: [process.env.SESSION_SECRET || 'dev-secret-string-replace-in-prod'],
@@ -35,9 +31,44 @@ app.use(express.static(path.join(__dirname, 'public')));
 const { setupAuthRoutes } = require('./lib/auth');
 setupAuthRoutes(app);
 
+// ─── Supabase Realtime Broadcast ───
+const supabase = require('./lib/supabase');
+
+/**
+ * Broadcast a message to a Supabase Realtime channel.
+ * This replaces the old WebSocket broadcast() function.
+ * Channel name format: overlay:{userId}
+ */
+async function broadcastRealtime(channelName, eventName, payload) {
+  if (!supabase) {
+    console.warn('Supabase not configured, cannot broadcast:', eventName);
+    return;
+  }
+  try {
+    const channel = supabase.channel(channelName);
+    await channel.send({
+      type: 'broadcast',
+      event: eventName,
+      payload: payload
+    });
+    // Unsubscribe immediately — serverless, no persistent connection
+    supabase.removeChannel(channel);
+  } catch (err) {
+    console.error('Realtime broadcast error:', err.message);
+  }
+}
+
+// Legacy-compatible broadcast wrapper used by lib modules
+// Matches the old signature: broadcast(messageObj, targetUserIds)
+function broadcast(messageObj, targetUserIds = null) {
+  if (!targetUserIds || targetUserIds.length === 0) return;
+  targetUserIds.forEach(userId => {
+    broadcastRealtime(`overlay:${userId}`, messageObj.type, messageObj.data || {});
+  });
+}
+
 // ─── Gateway (Access Wall) ───
 app.get('/gate', (req, res) => {
-  // If already past the gate, go straight to login
   if (req.session.gatePassed) return res.redirect('/login');
   res.sendFile(path.join(__dirname, 'public', 'gate.html'));
 });
@@ -47,7 +78,6 @@ app.post('/api/gate/verify', (req, res) => {
   const correctPin = process.env.GATEWAY_PIN;
   
   if (!correctPin) {
-    // No PIN configured — let everyone through
     req.session.gatePassed = true;
     return res.redirect('/login');
   }
@@ -57,18 +87,15 @@ app.post('/api/gate/verify', (req, res) => {
     return res.redirect('/login');
   }
   
-  // Wrong PIN
   res.redirect('/gate?err=1');
 });
 
-// Gateway middleware — blocks access to login/dashboard without the PIN
 function requireGate(req, res, next) {
-  if (!process.env.GATEWAY_PIN) return next(); // No PIN set = no gate
+  if (!process.env.GATEWAY_PIN) return next();
   if (req.session?.gatePassed) return next();
   return res.redirect('/gate');
 }
 
-// Auth Middleware wrapper
 function requireAuth(req, res, next) {
   if (!req.session?.userId) return res.redirect('/login');
   next();
@@ -78,12 +105,10 @@ function requireAuth(req, res, next) {
 app.get('/', (req, res) => res.redirect('/gate'));
 
 app.get('/login', requireGate, (req, res) => {
-  // If already logged in, go to dashboard
   if (req.session?.userId) return res.redirect('/dashboard');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Protect auth/kick behind the gate too
 app.get('/api/auth/kick-gate', requireGate, (req, res) => {
   res.redirect('/api/auth/kick');
 });
@@ -121,13 +146,88 @@ app.get('/api/me', requireAuth, async (req, res) => {
   }
 });
 
+// ─── Supabase Config for Frontend ───
+app.get('/api/supabase-config', (req, res) => {
+  res.json({
+    url: process.env.SUPABASE_URL || '',
+    anonKey: process.env.SUPABASE_ANON_KEY || ''
+  });
+});
+
 app.get('/dashboard', requireGate, requireAuth, (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'dashboard.html'));
 });
 
 app.get('/overlay/:userId', (req, res) => {
-  // OBS Source — never gated, no auth required
   res.sendFile(path.join(__dirname, 'public', 'overlay.html'));
+});
+
+// ─── Command API (replaces WebSocket messages) ───
+app.post('/api/command', requireAuth, async (req, res) => {
+  const { action, ...payload } = req.body;
+  if (!action) return res.status(400).json({ error: 'Missing action' });
+  
+  // Determine target userId from session or payload
+  const targetUserId = payload.targetUserId || req.session.userId;
+  
+  // Security: verify user has permission to control this target
+  if (targetUserId !== req.session.userId) {
+    // Check moderator assignment
+    if (supabase) {
+      const { data, error } = await supabase
+        .from('moderator_assignments')
+        .select('id')
+        .eq('streamer_id', targetUserId)
+        .eq('manager_id', req.session.userId)
+        .single();
+      
+      if (!data || error) {
+        return res.status(403).json({ error: 'Not authorized for this channel' });
+      }
+    } else {
+      return res.status(403).json({ error: 'Not authorized' });
+    }
+  }
+  
+  try {
+    const { handleCommand } = require('./lib/commandHandler');
+    await handleCommand(targetUserId, { action, ...payload });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Command error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ─── State API (initial load for dashboard/overlay) ───
+app.get('/api/state/:userId', async (req, res) => {
+  const userId = req.params.userId;
+  try {
+    const stateManager = require('./lib/stateManager');
+    const countdown = require('./lib/countdown');
+    const goals = require('./lib/goals');
+    const roulette = require('./lib/roulette');
+    
+    const overlayState = await stateManager.getState(userId);
+    const countdownState = countdown.getState(userId);
+    const goalState = goals.getGoalState(userId);
+    const rouletteState = await roulette.initUser(userId);
+    
+    res.json({
+      overlay: overlayState || { elements: {} },
+      countdown: countdownState || { running: false, currentMs: 3600000, endTime: null },
+      goals: goalState || { currentCount: 0, list: [] },
+      roulette: { slices: rouletteState?.slices || [] }
+    });
+  } catch (err) {
+    console.error('State fetch error:', err);
+    res.json({
+      overlay: { elements: {} },
+      countdown: { running: false, currentMs: 3600000, endTime: null },
+      goals: { currentCount: 0, list: [] },
+      roulette: { slices: [] }
+    });
+  }
 });
 
 // Webhook routes
@@ -136,121 +236,10 @@ setupWebhookRoute(app);
 
 const PORT = process.env.PORT || 3000;
 if (require.main === module || !process.env.VERCEL) {
-  server.listen(PORT, () => {
+  app.listen(PORT, () => {
     console.log(`Server listening on port ${PORT}`);
   });
 }
-
-// WebSocket Hub
-const clients = new Map(); // ws -> { userId, role, isAlive }
-
-function heartbeat() {
-  this.isAlive = true;
-}
-
-const supabase = require('./lib/supabase');
-
-server.on('upgrade', (request, socket, head) => {
-  sessionMiddleware(request, {}, () => {
-    if (!request.session.userId && !request.url.includes('/overlay/')) {
-      // Overlays don't need sessions, but dashboards do
-      // However, we'll allow the upgrade and handle the check in the connection
-    }
-    wss.handleUpgrade(request, socket, head, (ws) => {
-      wss.emit('connection', ws, request);
-    });
-  });
-});
-
-wss.on('connection', async (ws, req) => {
-  ws.isAlive = true;
-  ws.on('pong', heartbeat);
-
-  const urlParams = new URLSearchParams(req.url.split('?')[1]);
-  const targetUserId = urlParams.get('userId');
-  const role = urlParams.get('role') || 'viewer';
-  
-  // Security check:
-  // 1. If role is 'overlay', we allow connection (it's public/read-only)
-  // 2. If role is 'streamer' (dashboard), we MUST verify the session
-  
-  let authorized = false;
-  if (role === 'viewer') {
-    authorized = true; // Overlay is public
-  } else if (req.session && req.session.userId) {
-    if (req.session.userId === targetUserId) {
-      authorized = true; // Controlling own channel
-    } else {
-      // Check if user is a moderator for this targetUserId
-      const { data, error } = await supabase
-        .from('moderator_assignments')
-        .select('id')
-        .eq('streamer_id', targetUserId)
-        .eq('manager_id', req.session.userId)
-        .single();
-      
-      if (data && !error) {
-        authorized = true; // Authorized moderator
-        console.log(`Moderator ${req.session.userId} authorized for streamer ${targetUserId}`);
-      }
-    }
-  }
-
-  if (!targetUserId || !authorized) {
-    console.warn(`Unauthorized WS connection attempt: sessionUser=${req.session?.userId}, target=${targetUserId}, role=${role}`);
-    ws.close(1008, 'Unauthorized');
-    return;
-  }
-
-  clients.set(ws, { userId: targetUserId, role, isAlive: true });
-  console.log(`Client connected: userId=${targetUserId}, role=${role} (Auth: ${req.session?.userId || 'Public'})`);
-
-  ws.on('message', (message) => {
-    try {
-      const data = JSON.parse(message);
-      if (data.type === 'ping') {
-        ws.send(JSON.stringify({ type: 'pong' }));
-        if (data.payload && data.payload.action) {
-           const { handleCommand } = require('./lib/commandHandler');
-           handleCommand(targetUserId, data.payload);
-        }
-      }
-    } catch (e) {
-      console.error('WS message error:', e);
-    }
-  });
-
-  ws.on('close', () => {
-    clients.delete(ws);
-    console.log(`Client disconnected: userId=${targetUserId}`);
-  });
-});
-
-// Broadcast helper for specific users
-function broadcast(messageObj, targetUserIds = null) {
-  const messageStr = JSON.stringify(messageObj);
-  wss.clients.forEach(ws => {
-    const clientData = clients.get(ws);
-    if (!clientData) return;
-    
-    if (ws.readyState === ws.OPEN) {
-      if (!targetUserIds || targetUserIds.includes(clientData.userId)) {
-        ws.send(messageStr);
-      }
-    }
-  });
-}
-
-// WS Heartbeat interval
-const interval = setInterval(() => {
-  wss.clients.forEach((ws) => {
-    if (ws.isAlive === false) return ws.terminate();
-    ws.isAlive = false;
-    ws.ping();
-  });
-}, 30000);
-
-wss.on('close', () => clearInterval(interval));
 
 // Export app for Vercel, and attach broadcast for internal lib usage
 module.exports = app;
