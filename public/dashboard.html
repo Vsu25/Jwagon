@@ -4,277 +4,1129 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>StreamDeck Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      background-color: #0D0D0D;
-      color: white;
+      background-color: #0a0a0a;
+      color: #e0e0e0;
       font-family: 'Inter', sans-serif;
-      margin: 0;
       display: flex;
       flex-direction: column;
       height: 100vh;
+      overflow: hidden;
     }
+
+    /* ─── Color tokens ─── */
+    :root {
+      --bg-dark: #0a0a0a;
+      --bg-panel: #141414;
+      --bg-card: #1c1c1c;
+      --bg-input: #222;
+      --border: #2a2a2a;
+      --border-hover: #3a3a3a;
+      --accent: #53FC18;
+      --accent-dim: #3ab812;
+      --accent-glow: rgba(83, 252, 24, 0.15);
+      --danger: #ff4444;
+      --danger-dim: #cc2222;
+      --text-primary: #f0f0f0;
+      --text-secondary: #888;
+      --text-muted: #555;
+      --radius: 10px;
+      --radius-sm: 6px;
+    }
+
+    /* ─── Topbar ─── */
     .topbar {
-      height: 60px;
-      background-color: #1a1a1a;
+      height: 56px;
+      background: var(--bg-panel);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0 20px;
-      border-bottom: 1px solid #333;
+      padding: 0 24px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
     }
+    .brand {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .brand span { color: var(--accent); }
+    .user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 0.85rem;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--danger);
+      display: inline-block;
+      transition: background 0.3s;
+    }
+    .status-dot.online { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+    .role-badge {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+    }
+
+    /* ─── Main Layout ─── */
     .main-content {
       display: flex;
       flex: 1;
       overflow: hidden;
     }
     .sidebar {
-      width: 280px;
-      background-color: #1a1a1a;
-      border-right: 1px solid #333;
+      width: 260px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
       padding: 20px;
       overflow-y: auto;
+      flex-shrink: 0;
     }
     .center-canvas {
       flex: 1;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      background-color: #111;
+      background: var(--bg-dark);
+      position: relative;
     }
     .right-panel {
-      width: 300px;
-      background-color: #1a1a1a;
-      border-left: 1px solid #333;
-      padding: 20px;
+      width: 380px;
+      background: var(--bg-panel);
+      border-left: 1px solid var(--border);
+      padding: 0;
       overflow-y: auto;
+      flex-shrink: 0;
     }
-    .bottom-dock {
-      height: 80px;
-      background-color: #1a1a1a;
-      border-top: 1px solid #333;
-      display: flex;
-      align-items: center;
-      padding: 0 20px;
+
+    /* ─── Sidebar ─── */
+    .sidebar h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      font-weight: 600;
     }
-    .accent { color: #53FC18; }
-    
-    .toggle-row {
+    #events-container {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .event-item {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      line-height: 1.4;
+    }
+    .event-item .time { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+
+    /* ─── Panel Sections ─── */
+    .panel-section {
+      padding: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .panel-section:last-child { border-bottom: none; }
+    .panel-header {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 15px;
-      padding: 10px;
-      background-color: #222;
-      border-radius: 6px;
+      align-items: center;
+      margin-bottom: 16px;
     }
-    
-    .status-dot {
-      display: inline-block;
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background-color: #ff3333;
-      margin-left: 10px;
+    .panel-title {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--text-secondary);
+      font-weight: 600;
     }
-    .status-dot.online { background-color: #53FC18; }
-    
-    select {
-      background-color: #333;
-      color: white;
-      border: 1px solid #444;
-      padding: 5px;
-      border-radius: 4px;
+    .panel-badge {
+      font-size: 0.65rem;
+      background: var(--accent-glow);
+      color: var(--accent);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
     }
-    
-    button {
-      background-color: #333;
-      color: white;
-      border: 1px solid #555;
-      padding: 8px 12px;
-      border-radius: 4px;
+
+    /* ─── Buttons ─── */
+    .btn {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      padding: 8px 14px;
+      border-radius: var(--radius-sm);
       cursor: pointer;
+      font-size: 0.8rem;
+      font-family: 'Inter', sans-serif;
+      font-weight: 500;
+      transition: all 0.15s ease;
+      outline: none;
     }
-    button:hover { background-color: #444; }
+    .btn:hover { background: var(--border); border-color: var(--border-hover); }
+    .btn-accent {
+      background: var(--accent);
+      color: #000;
+      border-color: var(--accent);
+      font-weight: 700;
+    }
+    .btn-accent:hover { background: var(--accent-dim); }
+    .btn-danger { background: var(--danger-dim); border-color: var(--danger); color: #fff; }
+    .btn-danger:hover { background: var(--danger); }
+    .btn-sm { padding: 5px 10px; font-size: 0.75rem; }
+    .btn-icon {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      padding: 4px;
+      font-size: 1rem;
+      transition: color 0.15s;
+    }
+    .btn-icon:hover { color: var(--text-primary); }
+    .btn-icon.delete:hover { color: var(--danger); }
+
+    /* ─── Inputs ─── */
+    input[type="text"], input[type="number"], select {
+      background: var(--bg-input);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 0.82rem;
+      font-family: 'Inter', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+      width: 100%;
+    }
+    input:focus, select:focus { border-color: var(--accent); }
+    input[type="color"] {
+      width: 36px; height: 36px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--bg-input);
+      cursor: pointer;
+      padding: 2px;
+    }
+
+    /* ─── Countdown Panel ─── */
+    .timer-display {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 2.8rem;
+      font-weight: 700;
+      text-align: center;
+      letter-spacing: 3px;
+      color: var(--text-primary);
+      padding: 16px 0 8px;
+      transition: color 0.3s;
+    }
+    .timer-display.danger { color: var(--danger); animation: timerPulse 1s ease-in-out infinite; }
+    @keyframes timerPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+
+    .timer-controls {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      margin: 12px 0;
+    }
+    .timer-set-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .timer-set-row label {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      min-width: 60px;
+    }
+    .quick-add-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .quick-add-row .btn { flex: 1; text-align: center; }
+    .custom-add-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .custom-add-row input { flex: 1; }
+    .custom-add-row .btn { flex-shrink: 0; }
+
+    /* ─── Roulette Panel ─── */
+    .wheel-wrapper {
+      position: relative;
+      width: 220px;
+      height: 220px;
+      margin: 0 auto 16px;
+    }
+    .wheel-canvas {
+      width: 220px;
+      height: 220px;
+      border-radius: 50%;
+      border: 3px solid var(--accent);
+      box-shadow: 0 0 30px var(--accent-glow), inset 0 0 20px rgba(0,0,0,0.4);
+      transition: transform 5s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+    }
+    .wheel-pointer {
+      position: absolute;
+      top: -12px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0;
+      height: 0;
+      border-left: 12px solid transparent;
+      border-right: 12px solid transparent;
+      border-top: 20px solid var(--accent);
+      filter: drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+      z-index: 2;
+    }
+    .spin-btn {
+      display: block;
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dim));
+      color: #000;
+      border: none;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 800;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 4px 15px var(--accent-glow);
+    }
+    .spin-btn:hover { transform: translateY(-1px); box-shadow: 0 6px 20px var(--accent-glow); }
+    .spin-btn:active { transform: translateY(0); }
+    .spin-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+    .result-banner {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: var(--accent-glow);
+      border: 1px solid var(--accent);
+      border-radius: var(--radius-sm);
+      text-align: center;
+      font-weight: 600;
+      color: var(--accent);
+      font-size: 0.9rem;
+      display: none;
+      animation: fadeSlideIn 0.4s ease forwards;
+    }
+    @keyframes fadeSlideIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+    .slice-list {
+      max-height: 180px;
+      overflow-y: auto;
+      margin: 12px 0;
+    }
+    .slice-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      font-size: 0.8rem;
+    }
+    .slice-color {
+      width: 14px; height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+    .slice-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .add-section-form {
+      display: none;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-top: 10px;
+    }
+    .add-section-form.visible { display: block; animation: fadeSlideIn 0.2s ease; }
+    .form-row {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 8px;
+      align-items: center;
+    }
+    .form-row:last-child { margin-bottom: 0; }
+    .form-row label {
+      font-size: 0.75rem;
+      color: var(--text-secondary);
+      min-width: 50px;
+    }
+
+    /* ─── Goals Panel ─── */
+    .goal-item {
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-bottom: 8px;
+    }
+    .goal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 6px;
+    }
+    .goal-name { font-size: 0.82rem; font-weight: 600; }
+    .goal-count { font-size: 0.75rem; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+    .goal-bar-bg {
+      width: 100%;
+      height: 6px;
+      background: var(--bg-card);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .goal-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+      border-radius: 3px;
+      transition: width 0.4s ease;
+    }
+
+    /* ─── Modal ─── */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    .modal-overlay.visible { display: flex; animation: fadeIn 0.2s ease; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .modal {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      width: 500px;
+      max-width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .modal-header h3 {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .modal-body { padding: 20px; }
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .modal-goal-item {
+      display: grid;
+      grid-template-columns: 1fr 100px 80px 60px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .modal-goal-item.header {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+    }
+
+    /* ─── Preview Canvas ─── */
+    .preview-frame {
+      width: 768px;
+      height: 432px;
+      background: #000;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      position: relative;
+      box-shadow: 0 4px 30px rgba(0,0,0,0.4);
+    }
+    .preview-label {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      letter-spacing: 1px;
+    }
+    .preview-link {
+      position: absolute;
+      bottom: 12px;
+      right: 16px;
+      color: var(--accent);
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 500;
+      transition: opacity 0.2s;
+    }
+    .preview-link:hover { opacity: 0.7; }
+
+    /* ─── Bottom Dock ─── */
+    .bottom-dock {
+      height: 56px;
+      background: var(--bg-panel);
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 24px;
+      gap: 20px;
+      flex-shrink: 0;
+    }
+    .dock-section { display: flex; align-items: center; gap: 8px; }
+    .dock-section label { font-size: 0.78rem; color: var(--text-secondary); }
+
+    /* ─── Overlay Elements Toggle ─── */
+    .toggle-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 12px;
+      background: var(--bg-input);
+      border-radius: var(--radius-sm);
+      margin-bottom: 6px;
+      font-size: 0.82rem;
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--border-hover); }
   </style>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 </head>
 <body>
-  <div class="topbar">
-    <div class="brand">Stream<span class="accent">Deck</span> Dashboard</div>
-    
-    <!-- Mod Streamer Selector (Hidden by default) -->
-    <div id="mod-controls" style="display:none; margin-left: 20px; flex: 1;">
-      <label>Managing:</label>
-      <select id="streamer-select">
-        <option value="">Select Streamer</option>
-      </select>
-    </div>
 
+  <!-- ═══ TOPBAR ═══ -->
+  <div class="topbar">
+    <div class="brand">Stream<span>Deck</span></div>
+    <div id="mod-controls" style="display:none; margin-left: 20px; flex: 1;">
+      <label style="font-size:0.8rem; color:var(--text-secondary);">Managing:</label>
+      <select id="streamer-select"><option value="">Select Streamer</option></select>
+    </div>
     <div class="user-info">
-      Connection: <span id="conn-status" class="status-dot"></span>
-      <span id="role-badge" style="margin: 0 15px; background: #333; padding: 3px 8px; border-radius: 4px; font-size: 0.8rem;"></span>
+      <span style="color:var(--text-secondary); font-size:0.78rem;">Status</span>
+      <span id="conn-status" class="status-dot"></span>
+      <span id="role-badge" class="role-badge"></span>
       <form action="/api/auth/logout" method="POST" style="display:inline;">
-        <button type="submit">Logout</button>
+        <button type="submit" class="btn btn-sm">Logout</button>
       </form>
     </div>
   </div>
-  
+
+  <!-- ═══ MAIN ═══ -->
   <div class="main-content">
+
+    <!-- ─── Left Sidebar: Event Log ─── -->
     <div class="sidebar">
-      <h3>Event Log & Alerts</h3>
-      <div id="events-container" style="color:#aaa; font-size:0.9rem;">
-        Waiting for events...
+      <h3>Event Log</h3>
+      <div id="events-container">
+        <div class="event-item" style="color:var(--text-muted);">Waiting for events...</div>
+      </div>
+
+      <div style="margin-top: 24px;">
+        <h3>Overlay Elements</h3>
+        <div class="toggle-item">
+          <span>Alert Box</span>
+          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'alertBox'})">Toggle</button>
+        </div>
+        <div class="toggle-item">
+          <span>Countdown</span>
+          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'countdown'})">Toggle</button>
+        </div>
+        <div class="toggle-item">
+          <span>Goal Bar</span>
+          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'goalBar'})">Toggle</button>
+        </div>
+        <div class="toggle-item">
+          <span>Roulette</span>
+          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'roulette'})">Toggle</button>
+        </div>
       </div>
     </div>
+
+    <!-- ─── Center: Preview Canvas ─── -->
     <div class="center-canvas">
-      <!-- 16:9 aspect ratio simulated container for overlay preview -->
-      <div style="width: 1280px; height: 720px; background-color: #000; border: 1px dashed #333; position:relative; transform: scale(0.6);">
-         <div style="position: absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:#444;">16:9 Preview Canvas</div>
-         <a href="#" id="preview-link" target="_blank" style="position:absolute; bottom:10px; right:10px; color:#53FC18; text-decoration:none;">Open Overlay -></a>
+      <div class="preview-frame">
+        <div class="preview-label">16:9 Overlay Preview</div>
+        <a href="#" id="preview-link" target="_blank" class="preview-link">Open Overlay ↗</a>
       </div>
     </div>
+
+    <!-- ─── Right Panel: Controls ─── -->
     <div class="right-panel">
-      <h3>Countdown Control</h3>
-      <div class="toggle-row">
-        <span>Timer State</span>
-        <div>
-          <button onclick="sendAction('countdown_start')">Start</button>
-          <button onclick="sendAction('countdown_stop')">Stop</button>
+
+      <!-- ── COUNTDOWN PANEL ── -->
+      <div class="panel-section">
+        <div class="panel-header">
+          <span class="panel-title">⏱ Countdown Timer</span>
+          <span id="timer-status" class="panel-badge">Stopped</span>
+        </div>
+
+        <div id="timer-display" class="timer-display">01:00:00</div>
+
+        <div class="timer-controls">
+          <button id="btn-start" class="btn btn-accent" onclick="toggleTimer()">▶ Start</button>
+          <button class="btn btn-danger btn-sm" onclick="sendAction('countdown_reset')">Reset</button>
+        </div>
+
+        <div class="timer-set-row">
+          <label>Set Time</label>
+          <input type="number" id="timer-set-input" placeholder="Minutes" min="1" max="1440" value="60" style="flex:1;">
+          <button class="btn btn-sm" onclick="setTimer()">Set</button>
+        </div>
+
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:6px;">Quick Add</div>
+        <div class="quick-add-row">
+          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 45000})">+45s</button>
+          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 60000})">+1m</button>
+          <button class="btn btn-sm" onclick="sendAction('countdown_add', {ms: 180000})">+3m</button>
+        </div>
+
+        <div class="custom-add-row">
+          <input type="number" id="custom-add-input" placeholder="Seconds" min="1">
+          <button class="btn btn-sm" onclick="customAdd()">+ Add</button>
         </div>
       </div>
-      <div class="toggle-row">
-        <span>Quick Add</span>
-        <div>
-          <button onclick="sendAction('countdown_add', {ms: 60000})">+1m</button>
-          <button onclick="sendAction('countdown_add', {ms: 300000})">+5m</button>
+
+      <!-- ── ROULETTE PANEL ── -->
+      <div class="panel-section">
+        <div class="panel-header">
+          <span class="panel-title">🎰 Roulette Wheel</span>
+          <span class="panel-badge" id="roulette-count">4 Sections</span>
+        </div>
+
+        <div class="wheel-wrapper">
+          <div class="wheel-pointer"></div>
+          <canvas id="wheel-canvas" class="wheel-canvas" width="440" height="440"></canvas>
+        </div>
+
+        <button id="spin-btn" class="spin-btn" onclick="spinWheel()">⚡ SPIN</button>
+
+        <div id="result-banner" class="result-banner"></div>
+
+        <div class="slice-list" id="slice-list"></div>
+
+        <button class="btn btn-sm" onclick="toggleAddSection()" style="width:100%;">+ Add Section</button>
+
+        <div id="add-section-form" class="add-section-form">
+          <div class="form-row">
+            <label>Name</label>
+            <input type="text" id="new-slice-name" placeholder="e.g. 10 Pushups">
+          </div>
+          <div class="form-row">
+            <label>Color</label>
+            <input type="color" id="new-slice-color" value="#ff5733">
+          </div>
+          <div class="form-row">
+            <label>Action</label>
+            <input type="text" id="new-slice-action" placeholder="What happens when it lands here">
+          </div>
+          <div class="form-row" style="justify-content: flex-end;">
+            <button class="btn btn-sm" onclick="toggleAddSection()">Cancel</button>
+            <button class="btn btn-accent btn-sm" onclick="addSlice()">Add</button>
+          </div>
         </div>
       </div>
-      <br>
-      <h3>Co-op Session</h3>
-      <div class="toggle-row" style="flex-direction:column;">
-        <input type="text" id="partner-input" placeholder="Partner Kick Username" style="margin-bottom:10px; padding:5px; background:#333; color:#fff; border:1px solid #444;">
-        <button onclick="sendAction('coop_start', {partner: document.getElementById('partner-input').value})" style="margin-bottom: 5px;">Link Session</button>
-        <button onclick="sendAction('coop_stop')" style="background-color:#900;">Unlink Session</button>
+
+      <!-- ── GOALS PANEL ── -->
+      <div class="panel-section">
+        <div class="panel-header">
+          <span class="panel-title">🎯 Goals</span>
+          <button class="btn btn-sm" onclick="openGoalsModal()">Manage Goals</button>
+        </div>
+
+        <div id="goals-summary">
+          <!-- rendered dynamically -->
+        </div>
       </div>
-      <br>
-      <h3>Roulette Panel</h3>
-      <div class="toggle-row">
-        <span>Lucky Wheel</span>
-        <button onclick="sendAction('roulette_spin')" style="background-color:#53fc18; color:#000; font-weight:bold;">SPIN NOW</button>
+
+      <!-- ── CO-OP PANEL ── -->
+      <div class="panel-section">
+        <div class="panel-header">
+          <span class="panel-title">🤝 Co-op Session</span>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <input type="text" id="partner-input" placeholder="Partner Kick Username" style="flex:1;">
+          <button class="btn btn-accent btn-sm" onclick="sendAction('coop_start', {partner: document.getElementById('partner-input').value})">Link</button>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="sendAction('coop_stop')" style="width:100%; margin-top:8px;">Unlink Session</button>
       </div>
-      <br>
-      <h3>Overlay Elements</h3>
-      <div class="toggle-row">
-        <span>Alert Box</span>
-        <button onclick="sendAction('toggle', {element: 'alertBox'})">Toggle</button>
-      </div>
-      <div class="toggle-row">
-        <span>Countdown</span>
-        <button onclick="toggleElement('countdown')">Toggle</button>
-      </div>
-      <div class="toggle-row">
-        <span>Goal Bar</span>
-        <button onclick="toggleElement('goalBar')">Toggle</button>
-      </div>
+
     </div>
   </div>
-  
+
+  <!-- ═══ BOTTOM DOCK ═══ -->
   <div class="bottom-dock">
-    <div style="flex:1;">
+    <div class="dock-section" style="flex:1;">
       <label>Preset:</label>
       <select id="preset-switcher">
         <option>Just Chatting</option>
         <option>Gaming</option>
       </select>
     </div>
-    <div style="flex:1; text-align:center;">
-      <button onclick="mockKickEvent()">🔌 Mock Kick Event</button>
+    <div class="dock-section">
+      <button class="btn btn-sm" onclick="mockKickEvent()">🔌 Mock Kick Event</button>
     </div>
-    <div style="flex:1; text-align:right;">
-      Undo: <button disabled>No Actions</button>
+    <div class="dock-section" style="flex:1; justify-content:flex-end;">
+      <span style="font-size:0.78rem; color:var(--text-secondary);">Undo:</span>
+      <button class="btn btn-sm" disabled>No Actions</button>
     </div>
   </div>
 
+  <!-- ═══ GOALS MODAL ═══ -->
+  <div id="goals-modal" class="modal-overlay" onclick="if(event.target===this)closeGoalsModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>🎯 Manage Goals</h3>
+        <button class="btn-icon" onclick="closeGoalsModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-goal-item header">
+          <span>Goal Name</span>
+          <span>Type</span>
+          <span>Target</span>
+          <span></span>
+        </div>
+        <div id="modal-goals-list">
+          <!-- rendered dynamically -->
+        </div>
+        <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
+          <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Add New Goal</div>
+          <div class="modal-goal-item">
+            <input type="text" id="new-goal-name" placeholder="Goal name">
+            <select id="new-goal-type">
+              <option value="subs">Subs</option>
+              <option value="followers">Follows</option>
+            </select>
+            <input type="number" id="new-goal-target" placeholder="#" min="1">
+            <button class="btn btn-accent btn-sm" onclick="addGoal()">+</button>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="closeGoalsModal()">Cancel</button>
+        <button class="btn btn-accent" onclick="saveGoals()">Save & Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SCRIPTS ═══ -->
   <script>
+    // ─── State ───
     let ws;
     let currentUser;
     let targetUserId;
+    let timerRunning = false;
+    let currentTimerMs = 3600000;
+    let isSpinning = false;
 
+    let rouletteSlices = [
+      { text: 'Eat Bean Boozled', color: '#ff3333', action: 'Must eat a Bean Boozled jelly bean' },
+      { text: 'Gift 5 Subs', color: '#33cc55', action: 'Gift 5 subs to chat' },
+      { text: '10 Pushups', color: '#3355ff', action: 'Drop and do 10 pushups on cam' },
+      { text: 'Drop Weapon', color: '#ffcc33', action: 'Drop your weapon in-game' }
+    ];
+
+    let goalsList = [
+      { id: '1', name: 'Play Horror Game', type: 'subs', targetCount: 10 },
+      { id: '2', name: 'Dye Hair Blue', type: 'subs', targetCount: 50 }
+    ];
+    let currentGoalCount = 0;
+
+    // ─── Init ───
     async function init() {
       try {
         const res = await fetch('/api/me');
         if (!res.ok) throw new Error('Not authenticated');
         currentUser = await res.json();
-        
         targetUserId = currentUser.userId;
-        
-        // Setup Mod tools if mod
+
         document.getElementById('role-badge').innerText = currentUser.role.toUpperCase();
         if (currentUser.role === 'mod') {
           document.getElementById('mod-controls').style.display = 'block';
-          // Would fetch assigned streamers here
         }
-        
         document.getElementById('preview-link').href = `/overlay/${targetUserId}`;
+
         connectWs();
+        renderWheel();
+        renderSliceList();
+        renderGoalsSummary();
       } catch (e) {
         window.location.href = '/login';
       }
     }
 
+    // ─── WebSocket ───
     function connectWs() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}/ws?userId=${currentUser.userId}&role=${currentUser.role}`;
-      
       ws = new WebSocket(wsUrl);
-      
+
       ws.onopen = () => {
         document.getElementById('conn-status').classList.add('online');
       };
-      
+
       ws.onmessage = (event) => {
         const msg = JSON.parse(event.data);
-        console.log('WS msg:', msg);
-        if (msg.type === 'state:update') {
-          logEvent('State updated: ' + msg.data.path);
-        } else if (msg.type === 'coop:notification') {
-          logEvent('Co-op Notif: ' + msg.data.message);
-        }
+        handleWsMessage(msg);
       };
-      
+
       ws.onclose = () => {
         document.getElementById('conn-status').classList.remove('online');
         setTimeout(connectWs, 2000);
       };
     }
 
+    function handleWsMessage(msg) {
+      if (msg.type === 'countdown:tick' || msg.type === 'countdown:update') {
+        currentTimerMs = msg.data.currentMs;
+        renderTimerDisplay();
+        if (msg.data.addedMs) logEvent(`Timer +${msg.data.addedMs/1000}s`);
+      } else if (msg.type === 'countdown:state') {
+        timerRunning = msg.data.running;
+        updateTimerUI();
+      } else if (msg.type === 'countdown:zero') {
+        logEvent('⏰ Timer reached zero!');
+      } else if (msg.type === 'goal:update') {
+        currentGoalCount = msg.data.currentCount;
+        renderGoalsSummary();
+      } else if (msg.type === 'goal:reached') {
+        logEvent(`🎯 Goal reached: ${msg.data.goalName}`);
+      } else if (msg.type === 'roulette:result') {
+        showRouletteResult(msg.data.result);
+        isSpinning = false;
+        document.getElementById('spin-btn').disabled = false;
+      } else if (msg.type === 'roulette:spin') {
+        animateWheelSpin(msg.data.targetAngle, msg.data.duration);
+      } else if (msg.type === 'state:update') {
+        logEvent('State: ' + msg.data.path);
+      } else if (msg.type === 'coop:notification') {
+        logEvent('🤝 ' + msg.data.message);
+      }
+    }
+
     function sendAction(actionType, payloadObj = {}) {
       if (!ws || ws.readyState !== WebSocket.OPEN) return;
       ws.send(JSON.stringify({
-        type: 'ping', // Standard generic control event for now
+        type: 'ping',
         payload: { action: actionType, ...payloadObj }
       }));
-      logEvent(`Action sent: ${actionType}`);
+      logEvent(`→ ${actionType}`);
+    }
+
+    // ─── Timer Functions ───
+    function renderTimerDisplay() {
+      const el = document.getElementById('timer-display');
+      const h = String(Math.floor(currentTimerMs / 3600000)).padStart(2, '0');
+      const m = String(Math.floor((currentTimerMs % 3600000) / 60000)).padStart(2, '0');
+      const s = String(Math.floor((currentTimerMs % 60000) / 1000)).padStart(2, '0');
+      el.innerText = `${h}:${m}:${s}`;
+      el.classList.toggle('danger', currentTimerMs <= 60000 && currentTimerMs > 0);
+    }
+
+    function updateTimerUI() {
+      const btn = document.getElementById('btn-start');
+      const badge = document.getElementById('timer-status');
+      if (timerRunning) {
+        btn.innerHTML = '⏸ Stop';
+        btn.classList.remove('btn-accent');
+        btn.classList.add('btn-danger');
+        badge.innerText = 'Running';
+        badge.style.background = 'rgba(83,252,24,0.15)';
+        badge.style.color = 'var(--accent)';
+      } else {
+        btn.innerHTML = '▶ Start';
+        btn.classList.remove('btn-danger');
+        btn.classList.add('btn-accent');
+        badge.innerText = 'Stopped';
+        badge.style.background = 'rgba(255,68,68,0.15)';
+        badge.style.color = 'var(--danger)';
+      }
+    }
+
+    function toggleTimer() {
+      if (timerRunning) {
+        sendAction('countdown_stop');
+        timerRunning = false;
+      } else {
+        sendAction('countdown_start');
+        timerRunning = true;
+      }
+      updateTimerUI();
+    }
+
+    function setTimer() {
+      const mins = parseInt(document.getElementById('timer-set-input').value);
+      if (!mins || mins < 1) return;
+      const ms = mins * 60000;
+      sendAction('countdown_set', { ms });
+      currentTimerMs = ms;
+      renderTimerDisplay();
+    }
+
+    function customAdd() {
+      const secs = parseInt(document.getElementById('custom-add-input').value);
+      if (!secs || secs < 1) return;
+      sendAction('countdown_custom_add', { ms: secs * 1000 });
+      document.getElementById('custom-add-input').value = '';
+    }
+
+    // ─── Roulette Functions ───
+    function renderWheel() {
+      const canvas = document.getElementById('wheel-canvas');
+      const ctx = canvas.getContext('2d');
+      const cx = 220, cy = 220, r = 210;
+
+      ctx.clearRect(0, 0, 440, 440);
+
+      if (rouletteSlices.length === 0) {
+        ctx.fillStyle = '#333';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#666';
+        ctx.font = '24px Inter';
+        ctx.textAlign = 'center';
+        ctx.fillText('Add sections', cx, cy);
+        return;
+      }
+
+      const sliceAngle = (Math.PI * 2) / rouletteSlices.length;
+
+      rouletteSlices.forEach((slice, i) => {
+        const start = i * sliceAngle - Math.PI / 2;
+        const end = start + sliceAngle;
+
+        // Slice background
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        ctx.fillStyle = slice.color;
+        ctx.fill();
+
+        // Slice border
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Label
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 13px Inter';
+        ctx.shadowColor = 'rgba(0,0,0,0.6)';
+        ctx.shadowBlur = 3;
+
+        const text = slice.text.length > 14 ? slice.text.substring(0, 12) + '…' : slice.text;
+        ctx.fillText(text, r * 0.6, 5);
+        ctx.restore();
+      });
+
+      // Center hub
+      ctx.beginPath();
+      ctx.arc(cx, cy, 22, 0, Math.PI * 2);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fill();
+      ctx.strokeStyle = 'var(--accent)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      document.getElementById('roulette-count').innerText = `${rouletteSlices.length} Section${rouletteSlices.length !== 1 ? 's' : ''}`;
+    }
+
+    function renderSliceList() {
+      const container = document.getElementById('slice-list');
+      container.innerHTML = rouletteSlices.map((s, i) => `
+        <div class="slice-item">
+          <div class="slice-color" style="background:${s.color};"></div>
+          <span class="slice-name" title="${s.action || s.text}">${s.text}</span>
+          <button class="btn-icon delete" onclick="removeSlice(${i})" title="Delete">🗑</button>
+        </div>
+      `).join('');
+    }
+
+    function toggleAddSection() {
+      document.getElementById('add-section-form').classList.toggle('visible');
+    }
+
+    function addSlice() {
+      const name = document.getElementById('new-slice-name').value.trim();
+      const color = document.getElementById('new-slice-color').value;
+      const action = document.getElementById('new-slice-action').value.trim();
+      if (!name) return;
+
+      rouletteSlices.push({ text: name, color, action: action || name });
+      document.getElementById('new-slice-name').value = '';
+      document.getElementById('new-slice-action').value = '';
+
+      renderWheel();
+      renderSliceList();
+      saveSlicesToServer();
+      toggleAddSection();
+    }
+
+    function removeSlice(index) {
+      rouletteSlices.splice(index, 1);
+      renderWheel();
+      renderSliceList();
+      saveSlicesToServer();
+    }
+
+    function saveSlicesToServer() {
+      sendAction('roulette_save_slices', { slices: rouletteSlices });
+    }
+
+    function spinWheel() {
+      if (isSpinning || rouletteSlices.length === 0) return;
+      isSpinning = true;
+      document.getElementById('spin-btn').disabled = true;
+      document.getElementById('result-banner').style.display = 'none';
+      sendAction('roulette_spin');
+    }
+
+    function animateWheelSpin(targetAngle, duration) {
+      const canvas = document.getElementById('wheel-canvas');
+      canvas.style.transitionDuration = `${duration}ms`;
+      canvas.style.transform = `rotate(${targetAngle}deg)`;
+    }
+
+    function showRouletteResult(result) {
+      const banner = document.getElementById('result-banner');
+      banner.style.display = 'block';
+      banner.innerHTML = `🎉 <strong>${result}</strong>`;
+    }
+
+    // ─── Goals Functions ───
+    function renderGoalsSummary() {
+      const container = document.getElementById('goals-summary');
+      if (goalsList.length === 0) {
+        container.innerHTML = '<div style="color:var(--text-muted); font-size:0.8rem; text-align:center; padding:12px;">No goals set. Click "Manage Goals" to add some.</div>';
+        return;
+      }
+      container.innerHTML = goalsList.map(g => {
+        const pct = Math.min(100, (currentGoalCount / g.targetCount) * 100);
+        return `
+          <div class="goal-item">
+            <div class="goal-header">
+              <span class="goal-name">${g.name}</span>
+              <span class="goal-count">${currentGoalCount} / ${g.targetCount}</span>
+            </div>
+            <div class="goal-bar-bg">
+              <div class="goal-bar-fill" style="width:${pct}%;"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openGoalsModal() {
+      renderModalGoals();
+      document.getElementById('goals-modal').classList.add('visible');
+    }
+
+    function closeGoalsModal() {
+      document.getElementById('goals-modal').classList.remove('visible');
+    }
+
+    function renderModalGoals() {
+      const container = document.getElementById('modal-goals-list');
+      container.innerHTML = goalsList.map((g, i) => `
+        <div class="modal-goal-item">
+          <input type="text" value="${g.name}" onchange="goalsList[${i}].name=this.value">
+          <select onchange="goalsList[${i}].type=this.value">
+            <option value="subs" ${g.type === 'subs' ? 'selected' : ''}>Subs</option>
+            <option value="followers" ${g.type === 'followers' ? 'selected' : ''}>Follows</option>
+          </select>
+          <input type="number" value="${g.targetCount}" min="1" onchange="goalsList[${i}].targetCount=parseInt(this.value)">
+          <button class="btn-icon delete" onclick="removeGoal(${i})">🗑</button>
+        </div>
+      `).join('');
+    }
+
+    function addGoal() {
+      const name = document.getElementById('new-goal-name').value.trim();
+      const type = document.getElementById('new-goal-type').value;
+      const target = parseInt(document.getElementById('new-goal-target').value);
+      if (!name || !target) return;
+
+      goalsList.push({
+        id: Date.now().toString(),
+        name,
+        type,
+        targetCount: target
+      });
+
+      document.getElementById('new-goal-name').value = '';
+      document.getElementById('new-goal-target').value = '';
+      renderModalGoals();
+    }
+
+    function removeGoal(index) {
+      goalsList.splice(index, 1);
+      renderModalGoals();
+    }
+
+    function saveGoals() {
+      sendAction('goals_save', { goals: goalsList });
+      renderGoalsSummary();
+      closeGoalsModal();
+      logEvent('Goals updated');
+    }
+
+    // ─── Event Log ───
+    function logEvent(text) {
+      const cont = document.getElementById('events-container');
+      if (cont.querySelector('.event-item')?.style.color) cont.innerHTML = '';
+      const el = document.createElement('div');
+      el.className = 'event-item';
+      el.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> ${text}`;
+      cont.prepend(el);
+      // Keep max 50 events
+      while (cont.children.length > 50) cont.removeChild(cont.lastChild);
     }
 
     function mockKickEvent() {
-      logEvent('Fired Mock Event: New Sub');
+      logEvent('🔌 Mock Event: New Sub');
       if (ws && ws.readyState === WebSocket.OPEN) {
-        // Send a ping message simulating a kick event to trigger server-side handlers
         ws.send(JSON.stringify({ type: 'ping' }));
       }
     }
-    
-    function logEvent(text) {
-      const cont = document.getElementById('events-container');
-      if (cont.innerText === 'Waiting for events...') cont.innerHTML = '';
-      const el = document.createElement('div');
-      el.innerText = `[${new Date().toLocaleTimeString()}] ${text}`;
-      el.style.borderBottom = '1px solid #333';
-      el.style.padding = '5px 0';
-      cont.prepend(el);
-    }
 
+    // ─── Boot ───
     window.onload = init;
   </script>
 </body>
