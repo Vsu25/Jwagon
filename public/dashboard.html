@@ -903,6 +903,8 @@
     let mockCount = 0;
     let isSpinning = false;
     let hideDashboardEvents = false; // Filter state
+    let timerRunning = false;
+    let currentTimerMs = 0;
 
     // ─── Init ───
     async function init() {
@@ -1086,7 +1088,10 @@
       }
     }
 
+    let actionInFlight = false;
     async function sendAction(actionType, payloadObj = {}) {
+      if (actionInFlight) return; // Rate limit: Ignore repeated clicks until previous finishes
+      actionInFlight = true;
       try {
         logEvent(`→ ${actionType}`, false, true);
         await fetch('/api/command', {
@@ -1096,6 +1101,8 @@
         });
       } catch (err) {
         console.error('Command failed', err);
+      } finally {
+        setTimeout(() => actionInFlight = false, 250); // 250ms minimum cool-down
       }
     }
 

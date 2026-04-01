@@ -210,7 +210,7 @@ app.get('/api/state/:userId', async (req, res) => {
     
     const overlayState = await stateManager.getState(userId);
     const countdownState = countdown.getState(userId);
-    const goalState = goals.getGoalState(userId);
+    const goalState = goals.getGoalState(userId) || await goals.initUser(userId);
     const rouletteState = await roulette.initUser(userId);
     
     res.json({
