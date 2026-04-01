@@ -507,17 +507,33 @@
     .dock-section { display: flex; align-items: center; gap: 8px; }
     .dock-section label { font-size: 0.78rem; color: var(--text-secondary); }
 
-    /* ─── Overlay Elements Toggle ─── */
-    .toggle-item {
+    .role-badge {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 2px 10px;
+      border-radius: 20px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--accent);
+    }
+    
+    .staff-item {
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      padding: 10px 12px;
+      gap: 12px;
+      padding: 10px;
       background: var(--bg-input);
       border-radius: var(--radius-sm);
-      margin-bottom: 6px;
-      font-size: 0.82rem;
+      margin-bottom: 8px;
     }
+    .staff-item img {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+    }
+    .staff-item .name { flex: 1; font-size: 0.85rem; }
 
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
@@ -529,21 +545,27 @@
 <body>
 
   <!-- ═══ TOPBAR ═══ -->
-  <div class="topbar">
-    <div class="brand">Stream<span>Deck</span></div>
-    <div id="mod-controls" style="display:none; margin-left: 20px; flex: 1;">
-      <label style="font-size:0.8rem; color:var(--text-secondary);">Managing:</label>
-      <select id="streamer-select"><option value="">Select Streamer</option></select>
+  <header class="topbar">
+    <div style="display:flex; align-items:center; gap:16px;">
+      <div class="brand">OLAY<span>HUB</span></div>
+      <div id="conn-status" class="status-dot"></div>
+      <div class="role-badge" id="user-role-badge">Streamer</div>
+      
+      <!-- Channel Switcher -->
+      <div id="channel-switcher" style="display:none; align-items:center; gap:8px; margin-left:12px;">
+        <span style="font-size:0.75rem; color:var(--text-secondary);">Context:</span>
+        <select id="switch-channel-select" onchange="switchContext()" style="background:var(--bg-input); border:1px solid var(--border); color:var(--text-primary); font-size:0.75rem; padding:4px 8px; border-radius:4px;">
+          <option value="me">Personal Channel</option>
+        </select>
+      </div>
     </div>
+    
     <div class="user-info">
-      <span style="color:var(--text-secondary); font-size:0.78rem;">Status</span>
-      <span id="conn-status" class="status-dot"></span>
-      <span id="role-badge" class="role-badge"></span>
-      <form action="/api/auth/logout" method="POST" style="display:inline;">
-        <button type="submit" class="btn btn-sm">Logout</button>
-      </form>
+      <span id="user-display-name" style="font-weight:500;">Loading...</span>
+      <img id="user-display-avatar" src="" style="width:32px; height:32px; border-radius:50%; border:2px solid var(--border);" alt="">
+      <button class="btn btn-danger btn-sm" onclick="location.href='/api/auth/logout'">Logout</button>
     </div>
-  </div>
+  </header>
 
   <!-- ═══ MAIN ═══ -->
   <div class="main-content">
@@ -551,12 +573,14 @@
     <!-- ─── Left Sidebar: Event Log ─── -->
     <div class="sidebar">
       <h3>Event Log</h3>
-      <div id="events-container" style="max-height: 200px; overflow-y: auto;">
+      <div id="events-container" style="max-height: 200px; overflow-y: auto; margin-bottom: 20px;">
         <div class="event-item" style="color:var(--text-muted);">Waiting for events...</div>
       </div>
 
-      <div style="margin-top: 24px;">
-        <h3>Overlay Elements</h3>
+      <button class="btn btn-accent btn-sm" onclick="openStaffModal()" style="width:100%; margin-bottom:24px;">👥 Manage Staff & Mods</button>
+
+      <div style="margin-top: 12px;">
+        <h3 style="margin-bottom:12px;">Overlay Elements</h3>
         <div class="toggle-item">
           <span>Alert Box</span>
           <button id="toggle-alertBox" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('alertBox')">ON</button>
@@ -652,13 +676,12 @@
           <canvas id="wheel-canvas" class="wheel-canvas" width="440" height="440"></canvas>
         </div>
 
-        <button id="spin-btn" class="spin-btn" onclick="spinWheel()">⚡ SPIN</button>
-
-        <div id="result-banner" class="result-banner"></div>
-
-        <div class="slice-list" id="slice-list"></div>
-
-        <button class="btn btn-sm" onclick="toggleAddSection()" style="width:100%;">+ Add Section</button>
+        <nav>
+          <div class="nav-item active" onclick="showTab('main')">🕹 Controls</div>
+          <div class="nav-item" onclick="showTab('overlay')">🎨 Overlay Design</div>
+          <div class="nav-item" onclick="showTab('sync')">🤝 Co-op Sync</div>
+          <div class="nav-item" onclick="openStaffModal()">👥 Staff & Mods</div>
+        </nav>button class="btn btn-sm" onclick="toggleAddSection()" style="width:100%;">+ Add Section</button>
 
         <div id="add-section-form" class="add-section-form">
           <div class="form-row">
@@ -717,8 +740,7 @@
         <div class="panel-header">
           <span class="panel-title">🤝 Co-op Session</span>
         </div>
-        <div style="display:flex; gap:8px;">
-          <input type="text" id="partner-input" placeholder="Partner Kick Username" style="flex:1;">
+        <input type="text" id="partner-input" placeholder="Partner Kick Username" style="flex:1;">
           <button class="btn btn-accent btn-sm" onclick="sendAction('coop_start', {partner: document.getElementById('partner-input').value})">Link</button>
         </div>
         <button class="btn btn-danger btn-sm" onclick="sendAction('coop_stop')" style="width:100%; margin-top:8px;">Unlink Session</button>
@@ -750,39 +772,56 @@
     </div>
   </div>
 
-  <!-- ═══ GOALS MODAL ═══ -->
-  <div id="goals-modal" class="modal-overlay" onclick="if(event.target===this)closeGoalsModal()">
+  <!-- ═══ MODALS ═══ -->
+  <div id="goals-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeGoalsModal()">
     <div class="modal">
       <div class="modal-header">
         <h3>🎯 Manage Goals</h3>
         <button class="btn-icon" onclick="closeGoalsModal()">✕</button>
       </div>
       <div class="modal-body">
-        <div class="modal-goal-item header">
-          <span>Goal Name</span>
-          <span>Type</span>
-          <span>Target</span>
-          <span></span>
-        </div>
         <div id="modal-goals-list">
           <!-- rendered dynamically -->
         </div>
         <div style="margin-top:12px; padding-top:12px; border-top:1px solid var(--border);">
           <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">Add New Goal</div>
-          <div class="modal-goal-item">
-            <input type="text" id="new-goal-name" placeholder="Goal name">
-            <select id="new-goal-type">
+          <div style="display:flex; gap:8px; margin-bottom:12px;">
+            <input type="text" id="new-goal-name" placeholder="Goal name" style="flex:1;">
+            <select id="new-goal-type" style="width:100px;">
               <option value="subs">Subs</option>
-              <option value="followers">Follows</option>
+              <option value="follows">Follows</option>
             </select>
-            <input type="number" id="new-goal-target" placeholder="#" min="1">
+            <input type="number" id="new-goal-target" placeholder="#" min="1" style="width:60px;">
             <button class="btn btn-accent btn-sm" onclick="addGoal()">+</button>
           </div>
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="closeGoalsModal()">Cancel</button>
-        <button class="btn btn-accent" onclick="saveGoals()">Save & Close</button>
+        <button class="btn btn-sm" onclick="closeGoalsModal()">Cancel</button>
+        <button class="btn btn-accent btn-sm" onclick="saveGoals()">Save & Close</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="staff-modal" class="modal-overlay" style="display:none;" onclick="if(event.target===this)closeStaffModal()">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>👥 Staff & Moderators</h3>
+        <button class="btn-icon" onclick="closeStaffModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:16px;">
+          Authorized managers can control your overlay. They must log in to OLAY HUB at least once to be added.
+        </p>
+        <div id="staff-list" style="margin-bottom:16px; max-height:200px; overflow-y:auto;">
+          <!-- Rendered dynamically -->
+        </div>
+        <div style="padding-top:16px; border-top:1px solid var(--border);">
+          <div style="display:flex; gap:8px;">
+            <input type="text" id="new-staff-username" placeholder="Kick Username" style="flex:1; height:36px;">
+            <button class="btn btn-accent" onclick="addStaff()">Add</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -817,13 +856,16 @@
         const res = await fetch('/api/me');
         if (!res.ok) throw new Error('Not authenticated');
         currentUser = await res.json();
+        
+        // Initial target is self
         targetUserId = currentUser.userId;
 
-        document.getElementById('role-badge').innerText = currentUser.role.toUpperCase();
-        if (currentUser.role === 'mod') {
-          document.getElementById('mod-controls').style.display = 'block';
-        }
-        document.getElementById('preview-link').href = `/overlay/${targetUserId}`;
+        // Update Header UI
+        document.getElementById('user-display-name').innerText = currentUser.kickUserId || 'Unknown';
+        document.getElementById('user-role-badge').innerText = currentUser.role === 'admin' ? 'SYSTEM ADMIN' : 'STREAMER';
+        
+        // Load managed channels for the switcher
+        fetchManagedChannels();
 
         connectWs();
         renderWheel();
@@ -834,10 +876,56 @@
       }
     }
 
+    async function fetchManagedChannels() {
+      try {
+        const res = await fetch('/api/managed-channels');
+        const channels = await res.json();
+        
+        const switcher = document.getElementById('channel-switcher');
+        const select = document.getElementById('switch-channel-select');
+        
+        if (channels.length > 0) {
+          switcher.style.display = 'flex';
+          channels.forEach(ch => {
+            const opt = document.createElement('option');
+            opt.value = ch.id;
+            opt.innerText = ch.kick_username;
+            select.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.error('Failed to fetch managed channels:', e);
+      }
+    }
+
+    function switchContext() {
+      const select = document.getElementById('switch-channel-select');
+      const newTarget = select.value === 'me' ? currentUser.userId : select.value;
+      
+      if (newTarget === targetUserId) return;
+      
+      targetUserId = newTarget;
+      logEvent(`🔄 Switched context to: ${select.options[select.selectedIndex].text}`);
+      
+      // Reconnect WS with new target
+      if (ws) ws.close();
+      connectWs();
+      
+      // Update UI role badge
+      const badge = document.getElementById('user-role-badge');
+      if (select.value === 'me') {
+        badge.innerText = 'STREAMER';
+        badge.style.color = 'var(--accent)';
+      } else {
+        badge.innerText = 'MANAGER';
+        badge.style.color = '#3399ff';
+      }
+    }
+
     // ─── WebSocket ───
     function connectWs() {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws?userId=${currentUser.userId}&role=${currentUser.role}`;
+      const wsUrl = `${protocol}//${window.location.host}/ws?userId=${targetUserId}&role=streamer`;
       ws = new WebSocket(wsUrl);
 
       ws.onopen = () => {
@@ -1338,6 +1426,78 @@
         config: { timePerSub, autoAddEnabled }
       });
       logEvent(`⚙ Sub config saved: ${timePerSub/1000}s/sub, auto=${autoAddEnabled ? 'ON' : 'OFF'}`);
+    }
+
+    // ─── Staff / Moderator Management ───
+    function openStaffModal() {
+      document.getElementById('staff-modal').style.display = 'flex';
+      renderStaffList();
+    }
+
+    function closeStaffModal() {
+      document.getElementById('staff-modal').style.display = 'none';
+    }
+
+    async function renderStaffList() {
+      const container = document.getElementById('staff-list');
+      try {
+        const res = await fetch('/api/moderators');
+        const staff = await res.json();
+        
+        if (staff.length === 0) {
+          container.innerHTML = '<div style="color:var(--text-muted); text-align:center; padding:20px; font-size:0.8rem;">No staff added yet.</div>';
+          return;
+        }
+
+        container.innerHTML = staff.map(s => `
+          <div class="staff-item">
+            <img src="${s.manager.kick_avatar || 'https://via.placeholder.com/32'}" alt="">
+            <div class="name">${s.manager.kick_username}</div>
+            <button class="btn-icon delete" onclick="removeStaff('${s.id}')">✕</button>
+          </div>
+        `).join('');
+      } catch (e) {
+        container.innerHTML = 'Error loading staff list.';
+      }
+    }
+
+    async function addStaff() {
+      const input = document.getElementById('new-staff-username');
+      const username = input.value.trim();
+      if (!username) return;
+
+      try {
+        const res = await fetch('/api/moderators', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username })
+        });
+        
+        const result = await res.json();
+        if (result.success) {
+          input.value = '';
+          renderStaffList();
+          logEvent(`✅ Added staff: ${username}`);
+        } else {
+          alert(result.error || 'Failed to add staff');
+        }
+      } catch (e) {
+        alert('Network error adding staff');
+      }
+    }
+
+    async function removeStaff(assignmentId) {
+      if (!confirm('Are you sure you want to remove this staff member?')) return;
+      try {
+        const res = await fetch(`/api/moderators/${assignmentId}`, { method: 'DELETE' });
+        const result = await res.json();
+        if (result.success) {
+          renderStaffList();
+          logEvent('🗑 Removed staff member');
+        }
+      } catch (e) {
+        alert('Error removing staff');
+      }
     }
 
     // ─── Drag & Drop for Preview Canvas ───
