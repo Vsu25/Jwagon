@@ -566,6 +566,25 @@
       font-weight: 600;
     }
 
+    /* ─── Mock Badge ─── */
+    .mock-badge {
+      display: inline-block;
+      background: rgba(255, 153, 0, 0.2);
+      color: #ff9900;
+      font-size: 0.6rem;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      vertical-align: middle;
+      margin-right: 2px;
+    }
+    .mock-event {
+      border-left: 2px solid rgba(255, 153, 0, 0.4);
+      padding-left: 8px;
+    }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -919,6 +938,9 @@
         renderWheel();
         renderSliceList();
         renderGoalsSummary();
+
+        // Set overlay link
+        document.getElementById('preview-link').href = '/overlay/' + currentUser.userId;
       } catch (e) {
         window.location.href = '/login';
       }
@@ -1351,12 +1373,13 @@
     }
 
     // ─── Event Log ───
-    function logEvent(text) {
+    function logEvent(text, isMock = false) {
       const cont = document.getElementById('events-container');
       if (cont.querySelector('.event-item')?.style.color) cont.innerHTML = '';
       const el = document.createElement('div');
-      el.className = 'event-item';
-      el.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> ${text}`;
+      el.className = 'event-item' + (isMock ? ' mock-event' : '');
+      const mockBadge = isMock ? '<span class="mock-badge">TEST</span> ' : '';
+      el.innerHTML = `<span class="time">${new Date().toLocaleTimeString()}</span> ${mockBadge}${text}`;
       cont.prepend(el);
       // Keep max 50 events
       while (cont.children.length > 50) cont.removeChild(cont.lastChild);
@@ -1369,7 +1392,7 @@
         'channel.followed': 'New Follow',
         'channel.subscription.gifts': 'Gift Subs'
       };
-      logEvent(`🔌 Mock: ${labels[eventType] || eventType}`);
+      logEvent(`🔌 Mock: ${labels[eventType] || eventType}`, true);
       sendAction('mock_event', { eventType });
       mockCount++;
       document.getElementById('mock-count').innerText = `${mockCount} mocked`;
@@ -1447,6 +1470,8 @@
       if (mockCount === 0) return;
       sendAction('goals_revert_mocks');
       logEvent(`↩ Reverting ${mockCount} mock subs`);
+      // Remove all mock/test event items from the log
+      document.querySelectorAll('.mock-event').forEach(el => el.remove());
       mockCount = 0;
       document.getElementById('mock-count').innerText = '0 mocked';
     }
