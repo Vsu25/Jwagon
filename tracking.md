@@ -45,10 +45,10 @@
 - [x] **Step 14: Goals overlay + dashboard**
 
 ## Phase 5: Co-op System
-- [ ] **Step 15: Co-op session management**
-  - [ ] Create `lib/coopSync.js`
-- [ ] **Step 16: Co-op countdown sync**
-- [ ] **Step 17: Co-op goals sync + cross-notifications**
+- [x] **Step 15: Co-op session management**
+  - [x] Create `lib/coopSync.js`
+- [x] **Step 16: Co-op countdown sync**
+- [x] **Step 17: Co-op goals sync + cross-notifications**
 
 ## Phase 6: Roulette + Polish
 - [ ] **Step 18: Roulette system**

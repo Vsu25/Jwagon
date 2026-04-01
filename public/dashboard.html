@@ -150,6 +150,13 @@
         </div>
       </div>
       <br>
+      <h3>Co-op Session</h3>
+      <div class="toggle-row" style="flex-direction:column;">
+        <input type="text" id="partner-input" placeholder="Partner Kick Username" style="margin-bottom:10px; padding:5px; background:#333; color:#fff; border:1px solid #444;">
+        <button onclick="sendAction('coop_start', {partner: document.getElementById('partner-input').value})" style="margin-bottom: 5px;">Link Session</button>
+        <button onclick="sendAction('coop_stop')" style="background-color:#900;">Unlink Session</button>
+      </div>
+      <br>
       <h3>Overlay Elements</h3>
       <div class="toggle-row">
         <span>Alert Box</span>
