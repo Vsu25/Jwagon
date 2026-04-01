@@ -102,6 +102,7 @@
       justify-content: center;
       background: var(--bg-dark);
       position: relative;
+      min-width: 0;
     }
     .right-panel {
       width: 380px;
@@ -558,28 +559,33 @@
         <h3>Overlay Elements</h3>
         <div class="toggle-item">
           <span>Alert Box</span>
-          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'alertBox'})">Toggle</button>
+          <button id="toggle-alertBox" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('alertBox')">ON</button>
         </div>
         <div class="toggle-item">
           <span>Countdown</span>
-          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'countdown'})">Toggle</button>
+          <button id="toggle-countdown" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('countdown')">ON</button>
         </div>
         <div class="toggle-item">
           <span>Goal Bar</span>
-          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'goalBar'})">Toggle</button>
+          <button id="toggle-goalBar" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('goalBar')">ON</button>
         </div>
         <div class="toggle-item">
           <span>Roulette</span>
-          <button class="btn btn-sm" onclick="sendAction('toggle', {element: 'roulette'})">Toggle</button>
+          <button id="toggle-roulette" class="btn btn-sm btn-accent" onclick="toggleOverlayElement('roulette')">ON</button>
         </div>
       </div>
     </div>
 
     <!-- ─── Center: Preview Canvas ─── -->
     <div class="center-canvas">
-      <div class="preview-frame">
-        <div class="preview-label">16:9 Overlay Preview</div>
-        <a href="#" id="preview-link" target="_blank" class="preview-link">Open Overlay ↗</a>
+      <div id="preview-frame" style="width:calc(100% - 40px); max-width:960px; aspect-ratio:16/9; background:#000; border:1px solid var(--border); border-radius:var(--radius); position:relative; box-shadow:0 4px 30px rgba(0,0,0,0.4); overflow:hidden;">
+        <!-- Draggable overlay element indicators -->
+        <div id="prev-countdown" class="preview-el" data-element="countdown" style="position:absolute; top:3%; left:2%; cursor:move; padding:4px 10px; border:1px dashed var(--accent); border-radius:4px; font-size:0.7rem; color:var(--accent); background:rgba(83,252,24,0.08); user-select:none;">⏱ Timer</div>
+        <div id="prev-goalBar" class="preview-el" data-element="goalBar" style="position:absolute; top:12%; left:2%; cursor:move; padding:4px 10px; border:1px dashed #ff9900; border-radius:4px; font-size:0.7rem; color:#ff9900; background:rgba(255,153,0,0.08); user-select:none;">🎯 Goals</div>
+        <div id="prev-roulette" class="preview-el" data-element="roulette" style="position:absolute; top:18%; right:5%; cursor:move; padding:4px 10px; border:1px dashed #3399ff; border-radius:4px; font-size:0.7rem; color:#3399ff; background:rgba(51,153,255,0.08); user-select:none;">🎰 Roulette</div>
+        <div id="prev-alertBox" class="preview-el" data-element="alertBox" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); cursor:move; padding:4px 10px; border:1px dashed #ff4444; border-radius:4px; font-size:0.7rem; color:#ff4444; background:rgba(255,68,68,0.08); user-select:none;">📢 Alerts</div>
+        <div style="position:absolute; bottom:8px; left:12px; font-size:0.65rem; color:var(--text-muted);">Drag elements to reposition on overlay</div>
+        <a href="#" id="preview-link" target="_blank" style="position:absolute; bottom:8px; right:12px; color:var(--accent); text-decoration:none; font-size:0.75rem;">Open Overlay ↗</a>
       </div>
     </div>
 
@@ -696,7 +702,12 @@
       </select>
     </div>
     <div class="dock-section">
-      <button class="btn btn-sm" onclick="mockKickEvent()">🔌 Mock Kick Event</button>
+      <select id="mock-event-type" style="background:var(--bg-input); color:var(--text-primary); border:1px solid var(--border); padding:4px 8px; border-radius:4px; font-size:0.78rem;">
+        <option value="channel.subscription.new">New Sub</option>
+        <option value="channel.followed">New Follow</option>
+        <option value="channel.subscription.gifts">Gift Subs</option>
+      </select>
+      <button class="btn btn-sm" onclick="mockKickEvent()">🔌 Fire Event</button>
     </div>
     <div class="dock-section" style="flex:1; justify-content:flex-end;">
       <span style="font-size:0.78rem; color:var(--text-secondary);">Undo:</span>
@@ -911,13 +922,14 @@
       ctx.clearRect(0, 0, 440, 440);
 
       if (rouletteSlices.length === 0) {
-        ctx.fillStyle = '#333';
+        ctx.fillStyle = '#222';
         ctx.beginPath();
         ctx.arc(cx, cy, r, 0, Math.PI * 2);
         ctx.fill();
-        ctx.fillStyle = '#666';
-        ctx.font = '24px Inter';
+        ctx.fillStyle = '#555';
+        ctx.font = '18px Inter';
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillText('Add sections', cx, cy);
         return;
       }
@@ -928,7 +940,7 @@
         const start = i * sliceAngle - Math.PI / 2;
         const end = start + sliceAngle;
 
-        // Slice background
+        // Slice fill
         ctx.beginPath();
         ctx.moveTo(cx, cy);
         ctx.arc(cx, cy, r, start, end);
@@ -936,34 +948,50 @@
         ctx.fillStyle = slice.color;
         ctx.fill();
 
-        // Slice border
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 2;
+        // Black divider line
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(cx + r * Math.cos(start), cy + r * Math.sin(start));
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
         ctx.stroke();
 
-        // Label
+        // Text label
         ctx.save();
         ctx.translate(cx, cy);
         ctx.rotate(start + sliceAngle / 2);
         ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 13px Inter';
-        ctx.shadowColor = 'rgba(0,0,0,0.6)';
-        ctx.shadowBlur = 3;
-
+        ctx.font = 'bold 12px Inter';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
         const text = slice.text.length > 14 ? slice.text.substring(0, 12) + '…' : slice.text;
-        ctx.fillText(text, r * 0.6, 5);
+        ctx.fillText(text, r * 0.58, 0);
         ctx.restore();
       });
 
-      // Center hub
+      // Outer ring
       ctx.beginPath();
-      ctx.arc(cx, cy, 22, 0, Math.PI * 2);
-      ctx.fillStyle = '#1a1a1a';
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#53FC18';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Black center circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, 26, 0, Math.PI * 2);
+      ctx.fillStyle = '#0a0a0a';
       ctx.fill();
-      ctx.strokeStyle = 'var(--accent)';
+      ctx.strokeStyle = '#53FC18';
       ctx.lineWidth = 2;
       ctx.stroke();
+
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#53FC18';
+      ctx.fill();
 
       document.getElementById('roulette-count').innerText = `${rouletteSlices.length} Section${rouletteSlices.length !== 1 ? 's' : ''}`;
     }
@@ -1120,14 +1148,88 @@
     }
 
     function mockKickEvent() {
-      logEvent('🔌 Mock Event: New Sub');
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'ping' }));
+      const eventType = document.getElementById('mock-event-type').value;
+      const labels = {
+        'channel.subscription.new': 'New Sub',
+        'channel.followed': 'New Follow',
+        'channel.subscription.gifts': 'Gift Subs'
+      };
+      logEvent(`🔌 Mock: ${labels[eventType] || eventType}`);
+      sendAction('mock_event', { eventType });
+    }
+
+    // ─── Toggle Overlay Elements ───
+    let elementStates = { alertBox: true, countdown: true, goalBar: true, roulette: true };
+
+    function toggleOverlayElement(elName) {
+      elementStates[elName] = !elementStates[elName];
+      const btn = document.getElementById(`toggle-${elName}`);
+      if (elementStates[elName]) {
+        btn.innerText = 'ON';
+        btn.classList.add('btn-accent');
+        btn.classList.remove('btn-danger');
+      } else {
+        btn.innerText = 'OFF';
+        btn.classList.remove('btn-accent');
+        btn.classList.add('btn-danger');
       }
+      sendAction('toggle', { element: elName });
+    }
+
+    // ─── Drag & Drop for Preview Canvas ───
+    function initDrag() {
+      const frame = document.getElementById('preview-frame');
+      const previewEls = frame.querySelectorAll('.preview-el');
+
+      previewEls.forEach(el => {
+        let isDragging = false;
+        let offsetX, offsetY;
+
+        el.addEventListener('mousedown', (e) => {
+          isDragging = true;
+          const rect = frame.getBoundingClientRect();
+          offsetX = e.clientX - el.getBoundingClientRect().left;
+          offsetY = e.clientY - el.getBoundingClientRect().top;
+          el.style.zIndex = '10';
+          e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e) => {
+          if (!isDragging) return;
+          const rect = frame.getBoundingClientRect();
+          let x = e.clientX - rect.left - offsetX;
+          let y = e.clientY - rect.top - offsetY;
+          // Clamp
+          x = Math.max(0, Math.min(x, rect.width - el.offsetWidth));
+          y = Math.max(0, Math.min(y, rect.height - el.offsetHeight));
+          el.style.left = x + 'px';
+          el.style.top = y + 'px';
+          el.style.right = 'auto';
+          el.style.transform = 'none';
+        });
+
+        document.addEventListener('mouseup', () => {
+          if (!isDragging) return;
+          isDragging = false;
+          el.style.zIndex = '';
+          // Send position as percentage to server
+          const rect = frame.getBoundingClientRect();
+          const xPct = ((el.offsetLeft) / rect.width) * 100;
+          const yPct = ((el.offsetTop) / rect.height) * 100;
+          sendAction('set_position', {
+            element: el.dataset.element,
+            x: Math.round(xPct * 100) / 100,
+            y: Math.round(yPct * 100) / 100
+          });
+        });
+      });
     }
 
     // ─── Boot ───
-    window.onload = init;
+    window.onload = () => {
+      init();
+      initDrag();
+    };
   </script>
 </body>
 </html>

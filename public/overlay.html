@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>StreamDeck Overlay</title>
   <link rel="stylesheet" href="/css/overlay-anims.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
   <style>
     body {
       margin: 0;
@@ -16,31 +17,169 @@
     }
     #overlay-container {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
     }
     .overlay-element {
       position: absolute;
-      /* Default entry animation class mapped dynamically later */
+      pointer-events: none;
+    }
+
+    /* ── Countdown ── */
+    #cd-display {
+      top: 20px; left: 20px;
+      font-size: 52px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.7), 0 0 20px rgba(0,0,0,0.3);
+      letter-spacing: 3px;
+    }
+    #cd-display.danger { color: #ff4444; animation: timerPulseBig 1s ease-in-out infinite; }
+    #cd-display.times-up { font-size: 64px; color: #ff4444; }
+    @keyframes timerPulseBig { 0%, 100% { opacity:1; transform: scale(1); } 50% { opacity:0.6; transform: scale(1.03); } }
+
+    /* ── Goal Bar ── */
+    #goal-display {
+      top: 90px; left: 20px;
+      padding: 12px 18px;
+      background: rgba(0,0,0,0.65);
+      border-radius: 10px;
+      color: #fff;
+      min-width: 280px;
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .goal-label { font-size: 13px; color: #aaa; margin-bottom: 4px; }
+    .goal-name { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .goal-progress-bg {
+      width: 100%; height: 8px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .goal-progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #3ab812, #53FC18);
+      border-radius: 4px;
+      transition: width 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .goal-count-text { font-size: 14px; color: #53FC18; font-family: 'JetBrains Mono', monospace; margin-top: 6px; }
+
+    /* ── Roulette ── */
+    #roulette-container {
+      top: 150px; right: 40px;
+      width: 340px; height: 340px;
+    }
+    .roulette-frame {
+      position: relative;
+      width: 340px; height: 340px;
+    }
+    #roulette-pointer {
+      position: absolute;
+      top: -16px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 14px solid transparent;
+      border-right: 14px solid transparent;
+      border-top: 24px solid #53FC18;
+      filter: drop-shadow(0 2px 6px rgba(83,252,24,0.5));
+      z-index: 10;
+    }
+    #roulette-canvas {
+      width: 340px; height: 340px;
+      border-radius: 50%;
+      box-shadow: 0 0 40px rgba(83,252,24,0.2), 0 0 80px rgba(0,0,0,0.5);
+      transition: transform 7s cubic-bezier(0.17, 0.67, 0.12, 0.99);
+    }
+
+    /* ── Roulette Result Popup ── */
+    #roulette-result-popup {
+      top: 510px; right: 40px;
+      display: none;
+      background: rgba(0,0,0,0.85);
+      border: 2px solid #53FC18;
+      border-radius: 12px;
+      padding: 16px 28px;
+      text-align: center;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 30px rgba(83,252,24,0.2);
+    }
+    #roulette-result-popup .result-label { font-size: 12px; color: #53FC18; text-transform: uppercase; letter-spacing: 2px; }
+    #roulette-result-popup .result-text { font-size: 26px; font-weight: 800; color: #fff; margin-top: 4px; }
+
+    /* ── Alert Box ── */
+    #alert-box {
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0,0,0,0.8);
+      border: 2px solid #53FC18;
+      border-radius: 14px;
+      padding: 20px 40px;
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: #fff;
+      display: none;
+      backdrop-filter: blur(10px);
+      box-shadow: 0 0 40px rgba(83,252,24,0.15);
+      min-width: 300px;
+    }
+
+    /* ── Goal Completion Animation ── */
+    .goal-complete-anim {
+      animation: goalComplete 1.2s ease-in-out forwards;
+    }
+    @keyframes goalComplete {
+      0% { transform: scale(1); opacity: 1; }
+      30% { transform: scale(1.1); opacity: 1; filter: brightness(1.5); }
+      60% { transform: scale(1.05); opacity: 1; }
+      100% { transform: scale(0.95) translateY(-10px); opacity: 0; }
+    }
+    .goal-enter-anim {
+      animation: goalEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    @keyframes goalEnter {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
     }
   </style>
 </head>
 <body>
-  <div id="overlay-container"></div>
+  <div id="overlay-container">
+    <!-- Elements created dynamically -->
+  </div>
 
   <script>
     const pathParts = window.location.pathname.split('/');
     const userId = pathParts[pathParts.length - 1];
-    
+
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws?userId=${userId}&role=viewer`;
     let ws;
-    
-    let state = { elements: {} };
+
+    // ─── Overlay State ───
+    let elementVisibility = {
+      alertBox: true,
+      countdown: true,
+      goalBar: true,
+      roulette: true
+    };
+
+    let goalsList = [
+      { id: '1', name: 'Play Horror Game', type: 'subs', targetCount: 10 },
+      { id: '2', name: 'Dye Hair Blue', type: 'subs', targetCount: 50 }
+    ];
+    let currentGoalCount = 0;
+    let currentGoalIndex = 0;
+    let goalsCumulative = true;
+
+    let rouletteSlices = [];
+    let currentRotation = 0;
     const container = document.getElementById('overlay-container');
 
+    // ─── WebSocket ───
     function connectWs() {
       ws = new WebSocket(wsUrl);
       ws.onopen = () => console.log('Overlay WS Connected');
@@ -53,179 +192,396 @@
         setTimeout(connectWs, 2000);
       };
     }
-    
-    function deepMerge(target, path, value) {
-      const keys = path.split('.');
-      let current = target;
-      for (let i = 0; i < keys.length - 1; i++) {
-        if (!current[keys[i]]) current[keys[i]] = {};
-        current = current[keys[i]];
-      }
-      current[keys[keys.length - 1]] = value;
-    }
 
     function handleMessage(msg) {
-      if (msg.type === 'state:update') {
-        const { path, value } = msg.data;
-        deepMerge(state, path, value);
-        renderOverlay();
-      } else if (msg.type === 'state:batch_update') {
-        msg.data.updates.forEach(u => deepMerge(state, u.path, u.value));
-        renderOverlay();
-      } else if (msg.type === 'alert:fire') {
-        renderAlert(msg.data);
-      } else if (msg.type === 'coop:notification') {
-        renderCoopNotification(msg.data);
-      } else if (msg.type === 'countdown:tick' || msg.type === 'countdown:update') {
-        renderCountdown(msg.data.currentMs);
-        if (msg.data.addedMs) renderTimeChip(msg.data.addedMs, msg.data.source);
-      } else if (msg.type === 'countdown:zero') {
-        renderTimeZero();
-      } else if (msg.type === 'goal:update') {
-        renderGoal(msg.data.currentCount);
-      } else if (msg.type === 'goal:reached') {
-        renderGoalReached(msg.data.goalName);
-      } else if (msg.type === 'roulette:spin') {
-        renderRouletteSpin(msg.data.targetAngle, msg.data.duration);
-      } else if (msg.type === 'roulette:result') {
-        renderRouletteResult(msg.data.result);
-      } else if (msg.type === 'roulette:update') {
-        renderRouletteDraw(msg.data.slices);
+      switch (msg.type) {
+        case 'state:update':
+          handleStateUpdate(msg.data);
+          break;
+        case 'state:batch_update':
+          msg.data.updates.forEach(u => handleStateUpdate(u));
+          break;
+        case 'alert:fire':
+          renderAlert(msg.data);
+          break;
+        case 'countdown:tick':
+        case 'countdown:update':
+          if (elementVisibility.countdown) {
+            renderCountdown(msg.data.currentMs);
+            if (msg.data.addedMs) renderTimeChip(msg.data.addedMs, msg.data.source);
+          }
+          break;
+        case 'countdown:zero':
+          renderTimeZero();
+          break;
+        case 'countdown:state':
+          // Timer running state - show/hide handled by visibility
+          break;
+        case 'goal:update':
+          currentGoalCount = msg.data.currentCount;
+          if (elementVisibility.goalBar) renderCurrentGoal();
+          break;
+        case 'goal:reached':
+          handleGoalReached(msg.data.goalName);
+          break;
+        case 'roulette:update':
+          rouletteSlices = msg.data.slices;
+          if (elementVisibility.roulette) drawRouletteWheel();
+          break;
+        case 'roulette:spin':
+          if (elementVisibility.roulette) animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
+          break;
+        case 'roulette:result':
+          if (elementVisibility.roulette) showRouletteResult(msg.data.result);
+          break;
+        case 'coop:notification':
+          renderCoopNotification(msg.data);
+          break;
       }
     }
 
+    // ─── State Update Handler (Toggles + Positions) ───
+    function handleStateUpdate(data) {
+      const { path, value } = data;
+      // Handle visibility toggles
+      const visMatch = path.match(/^elements\.(\w+)\.visible$/);
+      if (visMatch) {
+        const elName = visMatch[1];
+        elementVisibility[elName] = value;
+        toggleElementVisibility(elName, value);
+        return;
+      }
+      // Handle position changes
+      const posMatch = path.match(/^elements\.(\w+)\.position$/);
+      if (posMatch) {
+        const elName = posMatch[1];
+        setElementPosition(elName, value.x, value.y);
+        return;
+      }
+    }
+
+    function toggleElementVisibility(elName, visible) {
+      const elMap = {
+        countdown: 'cd-display',
+        goalBar: 'goal-display',
+        roulette: 'roulette-container',
+        alertBox: 'alert-box'
+      };
+      const domId = elMap[elName];
+      if (!domId) return;
+      const el = document.getElementById(domId);
+      if (el) el.style.display = visible ? '' : 'none';
+    }
+
+    function setElementPosition(elName, x, y) {
+      const elMap = {
+        countdown: 'cd-display',
+        goalBar: 'goal-display',
+        roulette: 'roulette-container',
+        alertBox: 'alert-box'
+      };
+      const domId = elMap[elName];
+      if (!domId) return;
+      const el = document.getElementById(domId);
+      if (el) {
+        // Convert percentage positions to CSS
+        el.style.left = x + '%';
+        el.style.top = y + '%';
+        el.style.right = 'auto';
+      }
+    }
+
+    // ─── Countdown ───
     function renderCountdown(ms) {
-       let cd = document.getElementById('cd-display');
-       if(!cd) {
-           cd = document.createElement('div');
-           cd.id = 'cd-display';
-           cd.className = 'overlay-element gpu-accel';
-           cd.style.top = '20px';
-           cd.style.left = '20px';
-           cd.style.fontSize = '48px';
-           cd.style.color = '#fff';
-           cd.style.fontFamily = 'monospace';
-           cd.style.fontWeight = 'bold';
-           cd.style.textShadow = '0px 0px 4px #000';
-           document.getElementById('overlay-container').appendChild(cd);
-       }
-       if (cd.innerText === "TIME'S UP") cd.className = 'overlay-element gpu-accel';
-       
-       const date = new Date(ms);
-       const h = String(Math.floor(ms / 3600000)).padStart(2, '0');
-       const m = String(date.getUTCMinutes()).padStart(2, '0');
-       const s = String(date.getUTCSeconds()).padStart(2, '0');
-       cd.innerText = `${h}:${m}:${s}`;
-       
-       if (ms <= 60000) cd.style.color = '#ff3333';
-       else cd.style.color = '#fff';
+      let cd = document.getElementById('cd-display');
+      if (!cd) {
+        cd = document.createElement('div');
+        cd.id = 'cd-display';
+        cd.className = 'overlay-element gpu-accel';
+        container.appendChild(cd);
+      }
+      if (!elementVisibility.countdown) { cd.style.display = 'none'; return; }
+      cd.style.display = '';
+
+      if (cd.innerText === "TIME'S UP") cd.className = 'overlay-element gpu-accel';
+
+      const h = String(Math.floor(ms / 3600000)).padStart(2, '0');
+      const m = String(Math.floor((ms % 3600000) / 60000)).padStart(2, '0');
+      const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+      cd.innerText = `${h}:${m}:${s}`;
+
+      cd.classList.toggle('danger', ms <= 60000 && ms > 0);
     }
-    
+
     function renderTimeChip(addedMs, source) {
-       const str = `+${addedMs/1000}s`;
-       const c = document.createElement('div');
-       c.className = 'overlay-element anim-slide-up';
-       c.innerText = str;
-       c.style.top = '70px';
-       c.style.left = '20px';
-       c.style.color = '#53FC18';
-       c.style.fontWeight = 'bold';
-       document.getElementById('overlay-container').appendChild(c);
-       setTimeout(() => {
-           c.className = 'overlay-element anim-slide-up-out';
-           setTimeout(() => c.remove(), 400);
-       }, 3000);
+      const str = `+${addedMs/1000}s`;
+      const c = document.createElement('div');
+      c.className = 'overlay-element anim-slide-up';
+      c.innerText = str;
+      c.style.top = '75px';
+      c.style.left = '20px';
+      c.style.color = '#53FC18';
+      c.style.fontWeight = 'bold';
+      c.style.fontSize = '20px';
+      c.style.textShadow = '0 2px 6px rgba(0,0,0,0.5)';
+      container.appendChild(c);
+      setTimeout(() => {
+        c.className = 'overlay-element anim-slide-up-out';
+        setTimeout(() => c.remove(), 400);
+      }, 2500);
     }
-    
+
     function renderTimeZero() {
-       const cd = document.getElementById('cd-display');
-       if (cd) {
-           cd.innerText = "TIME'S UP";
-           cd.className = 'overlay-element anim-scale-pop';
-       }
+      const cd = document.getElementById('cd-display');
+      if (cd) {
+        cd.innerText = "TIME'S UP";
+        cd.className = 'overlay-element anim-scale-pop times-up';
+      }
     }
 
-    function renderGoal(count) {
-       let gl = document.getElementById('goal-display');
-       if(!gl) {
-           gl = document.createElement('div');
-           gl.id = 'goal-display';
-           gl.className = 'overlay-element gpu-accel';
-           gl.style.top = '120px';
-           gl.style.left = '20px';
-           gl.style.padding = '10px';
-           gl.style.backgroundColor = 'rgba(0,0,0,0.5)';
-           gl.style.borderRadius = '8px';
-           gl.style.color = '#fff';
-           gl.style.fontWeight = 'bold';
-           gl.style.minWidth = '200px';
-           document.getElementById('overlay-container').appendChild(gl);
-       }
-       // Hardcoded targetCount placeholder for styling demo
-       gl.innerHTML = `<div>Goal</div><div style="color:#53FC18; font-size: 24px;">${count} / Target</div>`;
+    // ─── Goals (Hierarchical) ───
+    function renderCurrentGoal() {
+      let gl = document.getElementById('goal-display');
+      if (!gl) {
+        gl = document.createElement('div');
+        gl.id = 'goal-display';
+        gl.className = 'overlay-element gpu-accel';
+        container.appendChild(gl);
+      }
+      if (!elementVisibility.goalBar) { gl.style.display = 'none'; return; }
+      gl.style.display = '';
+
+      // Find current active goal (first incomplete one)
+      let activeGoal = null;
+      for (let i = 0; i < goalsList.length; i++) {
+        if (currentGoalCount < goalsList[i].targetCount) {
+          activeGoal = goalsList[i];
+          currentGoalIndex = i;
+          break;
+        }
+      }
+
+      if (!activeGoal) {
+        // All goals completed
+        gl.innerHTML = `
+          <div class="goal-label">🎉 ALL GOALS COMPLETE</div>
+          <div class="goal-name" style="color:#53FC18;">Congratulations!</div>
+        `;
+        return;
+      }
+
+      // For cumulative mode, show progress toward current goal
+      const prevTarget = currentGoalIndex > 0 ? goalsList[currentGoalIndex - 1].targetCount : 0;
+      const progressInGoal = goalsCumulative ? currentGoalCount : (currentGoalCount - prevTarget);
+      const goalRange = goalsCumulative ? activeGoal.targetCount : (activeGoal.targetCount - prevTarget);
+      const pct = Math.min(100, (currentGoalCount / activeGoal.targetCount) * 100);
+
+      gl.innerHTML = `
+        <div class="goal-label">Goal ${currentGoalIndex + 1} of ${goalsList.length}</div>
+        <div class="goal-name">${activeGoal.name}</div>
+        <div class="goal-progress-bg">
+          <div class="goal-progress-fill" style="width:${pct}%;"></div>
+        </div>
+        <div class="goal-count-text">${currentGoalCount} / ${activeGoal.targetCount}</div>
+      `;
     }
 
-    function renderGoalReached(name) {
-       let gl = document.getElementById('goal-display');
-       if (gl) {
-         gl.className = 'overlay-element anim-celebrate';
-         setTimeout(() => { gl.className = 'overlay-element gpu-accel'; }, 1000);
-       }
+    function handleGoalReached(goalName) {
+      const gl = document.getElementById('goal-display');
+      if (!gl) return;
+
+      // Celebrate animation
+      gl.classList.add('goal-complete-anim');
+
+      setTimeout(() => {
+        gl.classList.remove('goal-complete-anim');
+        // Advance to next goal
+        currentGoalIndex++;
+        gl.classList.add('goal-enter-anim');
+        renderCurrentGoal();
+        setTimeout(() => gl.classList.remove('goal-enter-anim'), 600);
+      }, 1200);
     }
 
-    function renderRouletteDraw(slices) {
-       let rl = document.getElementById('roulette-wheel');
-       if(!rl) {
-           rl = document.createElement('div');
-           rl.id = 'roulette-wheel';
-           rl.className = 'overlay-element gpu-accel';
-           rl.style.top = '100px';
-           rl.style.right = '20px';
-           rl.style.width = '300px';
-           rl.style.height = '300px';
-           rl.style.borderRadius = '50%';
-           rl.style.border = '5px solid #fff';
-           rl.style.boxShadow = '0 0 20px #53FC18';
-           rl.style.transition = 'transform cubic-bezier(0.25, 0.1, 0.25, 1)';
-           document.getElementById('overlay-container').appendChild(rl);
-       }
-       
-       let gradientStr = [];
-       let currentDeg = 0;
-       const degPerSlice = 360 / slices.length;
-       slices.forEach(s => {
-           const endDeg = currentDeg + degPerSlice;
-           gradientStr.push(`${s.color} ${currentDeg}deg ${endDeg}deg`);
-           currentDeg = endDeg;
-       });
-       
-       rl.style.background = `conic-gradient(${gradientStr.join(', ')})`;
+    // ─── Roulette ───
+    function ensureRouletteContainer() {
+      let rc = document.getElementById('roulette-container');
+      if (!rc) {
+        rc = document.createElement('div');
+        rc.id = 'roulette-container';
+        rc.className = 'overlay-element gpu-accel';
+        rc.innerHTML = `
+          <div class="roulette-frame">
+            <div id="roulette-pointer"></div>
+            <canvas id="roulette-canvas" width="680" height="680"></canvas>
+          </div>
+        `;
+        container.appendChild(rc);
+      }
+      if (!elementVisibility.roulette) rc.style.display = 'none';
+      else rc.style.display = '';
+      return rc;
     }
 
-    function renderRouletteSpin(targetAngle, duration) {
-       let rl = document.getElementById('roulette-wheel');
-       if(rl) {
-           rl.style.transitionDuration = `${duration}ms`;
-           rl.style.transform = `rotate(${targetAngle}deg)`;
-       }
+    function drawRouletteWheel() {
+      ensureRouletteContainer();
+      const canvas = document.getElementById('roulette-canvas');
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const cx = 340, cy = 340, r = 320;
+
+      ctx.clearRect(0, 0, 680, 680);
+
+      if (rouletteSlices.length === 0) {
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        return;
+      }
+
+      const sliceAngle = (Math.PI * 2) / rouletteSlices.length;
+
+      rouletteSlices.forEach((slice, i) => {
+        const start = i * sliceAngle - Math.PI / 2;
+        const end = start + sliceAngle;
+
+        // Draw slice
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, end);
+        ctx.closePath();
+        ctx.fillStyle = slice.color;
+        ctx.fill();
+
+        // Black divider lines
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, start);
+        ctx.lineTo(cx + r * Math.cos(start), cy + r * Math.sin(start));
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // Text label
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate(start + sliceAngle / 2);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 16px Inter';
+        ctx.shadowColor = 'rgba(0,0,0,0.8)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetX = 1;
+        ctx.shadowOffsetY = 1;
+
+        // Wrap text if too long
+        const text = slice.text.length > 16 ? slice.text.substring(0, 14) + '…' : slice.text;
+        ctx.fillText(text, r * 0.55, 0);
+        ctx.restore();
+      });
+
+      // Outer ring
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#53FC18';
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // Black center circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, 32, 0, Math.PI * 2);
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fill();
+      ctx.strokeStyle = '#53FC18';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Center dot
+      ctx.beginPath();
+      ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+      ctx.fillStyle = '#53FC18';
+      ctx.fill();
     }
 
-    function renderRouletteResult(resultText) {
-       let pop = document.createElement('div');
-       pop.className = 'overlay-element anim-glitch';
-       pop.style.top = '400px';
-       pop.style.right = '20px';
-       pop.style.fontSize = '32px';
-       pop.style.color = '#fff';
-       pop.style.backgroundColor = '#111';
-       pop.style.padding = '10px 20px';
-       pop.style.border = '2px solid #53FC18';
-       pop.innerText = `Winner: ${resultText}`;
-       document.getElementById('overlay-container').appendChild(pop);
-       
-       setTimeout(() => pop.remove(), 7000);
+    function animateRouletteSpin(targetAngle, duration) {
+      ensureRouletteContainer();
+      const canvas = document.getElementById('roulette-canvas');
+      if (!canvas) return;
+      // Reset transition for re-spin
+      canvas.style.transition = 'none';
+      canvas.style.transform = `rotate(${currentRotation}deg)`;
+      // Force reflow
+      canvas.offsetHeight;
+      canvas.style.transition = `transform ${duration}ms cubic-bezier(0.17, 0.67, 0.12, 0.99)`;
+      canvas.style.transform = `rotate(${targetAngle}deg)`;
+      currentRotation = targetAngle;
     }
 
+    function showRouletteResult(result) {
+      let popup = document.getElementById('roulette-result-popup');
+      if (!popup) {
+        popup = document.createElement('div');
+        popup.id = 'roulette-result-popup';
+        popup.className = 'overlay-element';
+        container.appendChild(popup);
+      }
+      popup.style.display = 'block';
+      popup.className = 'overlay-element anim-scale-pop';
+      popup.innerHTML = `
+        <div class="result-label">Winner</div>
+        <div class="result-text">${result}</div>
+      `;
+      setTimeout(() => {
+        popup.className = 'overlay-element anim-scale-pop-out';
+        setTimeout(() => { popup.style.display = 'none'; }, 300);
+      }, 7000);
+    }
+
+    // ─── Alerts ───
+    function renderAlert(data) {
+      if (!elementVisibility.alertBox) return;
+      let ab = document.getElementById('alert-box');
+      if (!ab) {
+        ab = document.createElement('div');
+        ab.id = 'alert-box';
+        ab.className = 'overlay-element';
+        container.appendChild(ab);
+      }
+      ab.style.display = 'block';
+      ab.className = `overlay-element ${data.anim || 'anim-scale-pop'}`;
+      ab.innerText = data.text;
+
+      setTimeout(() => {
+        ab.className = 'overlay-element anim-scale-pop-out';
+        setTimeout(() => { ab.style.display = 'none'; }, 400);
+      }, data.duration || 4000);
+    }
+
+    function renderCoopNotification(data) {
+      const notif = document.createElement('div');
+      notif.className = 'overlay-element anim-slide-up';
+      notif.style.bottom = '40px';
+      notif.style.left = '50%';
+      notif.style.transform = 'translateX(-50%)';
+      notif.style.background = 'rgba(0,0,0,0.8)';
+      notif.style.color = '#53FC18';
+      notif.style.padding = '12px 24px';
+      notif.style.borderRadius = '10px';
+      notif.style.fontSize = '16px';
+      notif.style.fontWeight = '600';
+      notif.style.border = '1px solid rgba(83,252,24,0.3)';
+      notif.innerText = data.message;
+      container.appendChild(notif);
+      setTimeout(() => {
+        notif.className = 'overlay-element anim-fade-out';
+        setTimeout(() => notif.remove(), 400);
+      }, 5000);
+    }
+
+    // ─── Init ───
+    renderCurrentGoal();
     connectWs();
   </script>
 </body>
