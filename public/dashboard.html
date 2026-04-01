@@ -676,12 +676,14 @@
           <canvas id="wheel-canvas" class="wheel-canvas" width="440" height="440"></canvas>
         </div>
 
-        <nav>
-          <div class="nav-item active" onclick="showTab('main')">🕹 Controls</div>
-          <div class="nav-item" onclick="showTab('overlay')">🎨 Overlay Design</div>
-          <div class="nav-item" onclick="showTab('sync')">🤝 Co-op Sync</div>
-          <div class="nav-item" onclick="openStaffModal()">👥 Staff & Mods</div>
-        </nav>button class="btn btn-sm" onclick="toggleAddSection()" style="width:100%;">+ Add Section</button>
+        <button id="spin-btn" class="spin-btn" onclick="spinWheel()">SPIN ROULETTE</button>
+        <div id="result-banner" class="result-banner"></div>
+
+        <div id="slice-list" class="slice-list">
+          <!-- Rendered dynamically -->
+        </div>
+
+        <button class="btn btn-sm" onclick="toggleAddSection()" style="width:100%;">+ Add Section</button>
 
         <div id="add-section-form" class="add-section-form">
           <div class="form-row">
