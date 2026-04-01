@@ -110,9 +110,11 @@ const { setupWebhookRoute } = require('./lib/kickWebhook');
 setupWebhookRoute(app);
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`Server listening on port ${PORT}`);
-});
+if (require.main === module || !process.env.VERCEL) {
+  server.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+}
 
 // WebSocket Hub
 const clients = new Map(); // ws -> { userId, role, isAlive }
@@ -225,5 +227,6 @@ const interval = setInterval(() => {
 
 wss.on('close', () => clearInterval(interval));
 
-// Export broadcast for other modules
-module.exports = { broadcast };
+// Export app for Vercel, and attach broadcast for internal lib usage
+module.exports = app;
+module.exports.broadcast = broadcast;
