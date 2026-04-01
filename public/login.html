@@ -9,7 +9,7 @@
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
-      background: #0a0a0a;
+      background: url('wakandaswaggy.png') center center / cover no-repeat;
       color: #e0e0e0;
       font-family: 'Inter', sans-serif;
       display: flex;
@@ -24,13 +24,14 @@
       position: fixed;
       inset: 0;
       background: 
-        radial-gradient(ellipse at 30% 40%, rgba(83, 252, 24, 0.05) 0%, transparent 50%),
-        radial-gradient(ellipse at 70% 60%, rgba(51, 153, 255, 0.03) 0%, transparent 50%);
+        radial-gradient(ellipse at 30% 40%, rgba(83, 252, 24, 0.15) 0%, transparent 50%),
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.8));
+      backdrop-filter: blur(6px);
       animation: bgPulse 8s ease-in-out infinite alternate;
       z-index: 0;
     }
     @keyframes bgPulse {
-      0% { opacity: 0.5; }
+      0% { opacity: 0.8; }
       100% { opacity: 1; }
     }
 
