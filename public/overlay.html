@@ -193,6 +193,7 @@
       box-shadow: 0 0 50px rgba(83,252,24,0.15);
       min-width: 320px;
     }
+    }
     #sync-indicator {
       position: fixed;
       bottom: 10px;
@@ -243,15 +244,17 @@
     // ─── Realtime & Initialization ───
     async function init() {
       try {
+        // Fetch Supabase Config
         const confRes = await fetch('/api/supabase-config');
         const conf = await confRes.json();
         supabaseClient = window.supabase.createClient(conf.url, conf.anonKey);
 
+        // Fetch Initial State
         const stateRes = await fetch('/api/state/' + userId);
         const stateData = await stateRes.json();
-        
-        // Consolidate initial state from DB
-        syncState(stateData.overlay?.config || stateData.overlay || {});
+        applyInitialState(stateData);
+
+        connectRealtime();
         
         // Start local ticker
         setInterval(() => {
@@ -260,93 +263,64 @@
             if (elementVisibility.countdown) renderCountdown(currentTimerMs);
           }
         }, 100);
-
-        connectRealtime();
       } catch (err) {
         console.error('Failed to init overlay:', err);
       }
     }
 
-    function syncState(config) {
-      if (!config) return;
-
-      // 1. Elements (Visibility/Position)
-      if (config.elements) {
-        Object.keys(config.elements).forEach(el => {
-          const cfg = config.elements[el];
-          if (cfg.visible !== undefined) {
-            elementVisibility[el] = cfg.visible;
-            toggleElementVisibility(el, cfg.visible);
+    function applyInitialState(state) {
+      if (state.overlay && state.overlay.elements) {
+        Object.keys(state.overlay.elements).forEach(el => {
+          if (state.overlay.elements[el].visible !== undefined) {
+            elementVisibility[el] = state.overlay.elements[el].visible;
+            toggleElementVisibility(el, elementVisibility[el]);
           }
-          if (cfg.position) {
-            setElementPosition(el, cfg.position.x, cfg.position.y);
+          if (state.overlay.elements[el].position) {
+            setElementPosition(el, state.overlay.elements[el].position.x, state.overlay.elements[el].position.y);
           }
         });
       }
-
-      // 2. Session Data (Countdown/Goals/Roulette)
-      const session = config.session || {};
       
-      if (session.countdown) {
-        timerRunning = session.countdown.running;
-        timerEndTime = session.countdown.endTime;
-        currentTimerMs = session.countdown.currentMs;
+      if (state.countdown) {
+        timerRunning = state.countdown.running;
+        currentTimerMs = state.countdown.currentMs;
+        timerEndTime = state.countdown.endTime;
         if (elementVisibility.countdown) renderCountdown(currentTimerMs);
       }
-
-      if (session.goals) {
-        currentGoalCount = session.goals.currentCount || 0;
-        goalsList = session.goals.list || [];
+      
+      if (state.goals) {
+        currentGoalCount = state.goals.currentCount || 0;
+        goalsList = state.goals.list || [];
         if (elementVisibility.goalBar) renderCurrentGoal();
       }
-
-      if (session.roulette) {
-        rouletteSlices = session.roulette.slices || [];
-        // Note: We don't auto-spin here, that's handled by specific events
-      }
-
-      // Sync indicator flash
-      const ind = document.getElementById('sync-indicator');
-      if (ind) {
-        ind.classList.add('active');
-        setTimeout(() => ind.classList.remove('active'), 800);
+      
+      if (state.roulette && state.roulette.slices) {
+        rouletteSlices = state.roulette.slices;
+        if (elementVisibility.roulette) drawRouletteWheel();
       }
     }
 
     function connectRealtime() {
-      // 1. Listen for Database Changes (Reliable Fallback)
-      supabaseClient
-        .channel('db-sync')
-        .on('postgres_changes', { 
-          event: 'UPDATE', 
-          schema: 'public', 
-          table: 'overlay_configs', 
-          filter: `user_id=eq.${userId}` 
-        }, (payload) => {
-          console.log('[DB] State Change detected');
-          syncState(payload.new.config);
-        })
-        .subscribe();
+      const channelName = 'overlay:' + userId;
+      realtimeChannel = supabaseClient.channel(channelName);
+      
+      realtimeChannel.on('broadcast', { event: '*' }, (payload) => {
+        handleMessage({ type: payload.event, data: payload.payload });
+      });
 
-      // 2. Listen for Broadcasts (Low Latency)
-      realtimeChannel = supabaseClient.channel('overlay:' + userId);
-      realtimeChannel
-        .on('broadcast', { event: '*' }, (payload) => {
-          handleMessage({ type: payload.event, data: payload.payload });
-        })
-        .subscribe();
+      realtimeChannel.subscribe();
     }
 
     function handleMessage(msg) {
       switch (msg.type) {
         case 'state:update':
-          // Handled by DB sync too, but for speed:
-          if (msg.data.path && msg.data.value !== undefined) {
-             const keys = msg.data.path.split('.');
-             if (keys[0] === 'elements') {
-                handleStateUpdate(msg.data);
-             }
-          }
+          handleStateUpdate(msg.data);
+          break;
+        case 'state:batch_update':
+          msg.data.updates.forEach(u => handleStateUpdate(u));
+          break;
+        case 'alert:fire':
+          renderAlert(msg.data);
           break;
         case 'countdown:update':
           currentTimerMs = msg.data.currentMs;
@@ -361,28 +335,77 @@
           timerEndTime = msg.data.endTime;
           if (elementVisibility.countdown) renderCountdown(currentTimerMs);
           break;
+        case 'countdown:zero':
+          renderTimeZero();
+          break;
         case 'goal:update':
           currentGoalCount = msg.data.currentCount;
           if (elementVisibility.goalBar) renderCurrentGoal();
           break;
+        case 'goal:reached':
+          handleGoalReached(msg.data.goalName);
+          break;
+        case 'goal:list':
+          goalsList = msg.data.goals;
+          renderCurrentGoal();
+          break;
+        case 'roulette:update':
+          rouletteSlices = msg.data.slices;
+          if (elementVisibility.roulette) drawRouletteWheel();
+          break;
         case 'roulette:spin':
+          // Force visible regardless of previous toggle state to ensure spin works
           elementVisibility.roulette = true; 
           const rc = ensureRouletteContainer();
           rc.style.display = 'block';
           rc.classList.remove('fade-out');
-          rouletteSlices = msg.data.slices || rouletteSlices;
           
           showRouletteWheel();
+          // Delay the spin slightly so the fade-in finishes
           setTimeout(() => {
             animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
-            // Pre-set result in 7s
-            setTimeout(() => {
-                showRouletteResult(msg.data.winner);
-            }, msg.data.duration);
           }, 150);
           break;
+        case 'roulette:result':
+          showRouletteResult(msg.data.result);
+          // hideRouletteWheel is handled inside showRouletteResult after 1.5s
+          break;
         case 'state_sync_heartbeat':
-          if (msg.data) syncState(msg.data);
+          // The source of truth has arrived!
+          if (msg.data.countdown) {
+            currentTimerMs = msg.data.countdown.currentMs;
+            timerEndTime = msg.data.countdown.endTime;
+            timerRunning = msg.data.countdown.running;
+          }
+          if (msg.data.goals) {
+            currentGoalCount = msg.data.goals.currentCount;
+            goalsList = msg.data.goals.list;
+          }
+          if (msg.data.roulette) {
+            rouletteSlices = msg.data.roulette.slices;
+          }
+          if (msg.data.visibility) {
+            Object.keys(msg.data.visibility).forEach(key => {
+              elementVisibility[key] = msg.data.visibility[key];
+              toggleElementVisibility(key, msg.data.visibility[key]);
+            });
+          }
+          // Refresh UI
+          if (timerRunning) {
+             elementVisibility.countdown = true;
+             toggleElementVisibility('countdown', true);
+          }
+          renderCountdown(currentTimerMs);
+          renderCurrentGoal();
+          drawRouletteWheel();
+
+          // Flash sync indicator
+          const ind = document.getElementById('sync-indicator');
+          if (ind) {
+            ind.classList.add('active');
+            setTimeout(() => ind.classList.remove('active'), 800);
+          }
+          console.log('[HB] Heartbeat received at ' + new Date().toLocaleTimeString());
           break;
         case 'goal:mock_reverted':
           currentGoalCount = msg.data.newCount || Math.max(0, currentGoalCount - (msg.data.revertedAmount || 0));

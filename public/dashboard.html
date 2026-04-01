@@ -827,10 +827,7 @@
       <div class="panel-section" id="telemetry-panel" style="margin-top:auto; border-top:2px solid var(--border); padding-top:16px;">
         <div class="panel-header" style="margin-bottom:8px;">
           <span class="panel-title" style="font-size:0.7rem; color:var(--text-muted);">🛰 TELEMETRY & SYNC</span>
-          <div style="display:flex; gap:4px;">
-            <button class="btn btn-xs" onclick="sendAction('state_sync_heartbeat')">Force Sync</button>
-            <button class="btn btn-xs btn-danger" onclick="if(confirm('Wipe session state?')) sendAction('session_reset')">Reset System</button>
-          </div>
+          <button class="btn btn-xs" onclick="sendAction('state_sync_heartbeat')">Force Sync</button>
         </div>
         <div id="telemetry-logs" style="height:80px; overflow-y:auto; font-family:'JetBrains Mono'; font-size:10px; color:#555; background:#050505; padding:6px; border-radius:4px; border:1px solid #1a1a1a;">
           <div>[SYS] Dashboard Initializing...</div>
@@ -1023,53 +1020,30 @@
 
     // ─── Supabase Realtime ───
     function applyInitialState(state) {
-      // Handle consolidated response from /api/state
-      const config = state.overlay?.config || state.overlay || {};
-      const session = config.session || {};
-
-      // 1. Countdown
-      if (session.countdown) {
-        timerRunning = session.countdown.running;
-        currentTimerMs = session.countdown.currentMs || 3600000;
-        timerEndTime = session.countdown.endTime;
+      if (state.countdown) {
+        timerRunning = state.countdown.running;
+        currentTimerMs = state.countdown.currentMs || 3600000;
+        timerEndTime = state.countdown.endTime;
         updateTimerUI();
         renderTimerDisplay();
       }
-
-      // 2. Goals
-      if (session.goals) {
-        currentGoalCount = session.goals.currentCount || 0;
-        goalsList = session.goals.list || [];
+      if (state.goals) {
+        currentGoalCount = state.goals.currentCount || 0;
+        goalsList = state.goals.list || [];
         renderGoalsSummary();
       }
-
-      // 3. Roulette
-      if (session.roulette) {
-        rouletteSlices = session.roulette.slices || [];
+      if (state.roulette && state.roulette.slices) {
+        rouletteSlices = state.roulette.slices;
         renderSliceList();
         renderWheel();
       }
     }
 
     function connectRealtime() {
-      if (!supabaseClient) return;
-
-      // 1. Listen for Database Changes (Authority)
-      supabaseClient
-        .channel('db-sync-dash')
-        .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'overlay_configs', 
-            filter: `user_id=eq.${targetUserId}` 
-        }, (payload) => {
-            console.log('[DB] Remote update detected');
-            applyInitialState({ overlay: payload.new });
-            logEvent('[SYNC] State updated from DB', false, false, true);
-        })
-        .subscribe();
-
-      // 2. Listen for Broadcasts (Legacy support / Inter-mod chat)
+      if (realtimeChannel) {
+        supabaseClient.removeChannel(realtimeChannel);
+      }
+      
       const channelName = 'overlay:' + targetUserId;
       realtimeChannel = supabaseClient.channel(channelName);
       
@@ -1188,16 +1162,18 @@
        if (!targetUserId || !realtimeChannel) return;
        if (document.hidden) return;
 
-       // Push current state to DB (Heartbeat Sync)
-       // This ensures that even if we hit a different Lambda, the state is consistent.
        sendAction('state_sync_heartbeat', {
-          session: {
-            countdown: { currentMs: currentTimerMs, running: timerRunning, endTime: timerEndTime },
-            goals: { currentCount: currentGoalCount, list: goalsList },
-            roulette: { slices: rouletteSlices }
+          countdown: { currentMs: currentTimerMs, running: timerRunning, endTime: timerEndTime },
+          goals: { currentCount: currentGoalCount, list: goalsList },
+          roulette: { slices: rouletteSlices },
+          visibility: { 
+            alertBox: document.getElementById('toggle-alertBox').innerText === 'ON',
+            countdown: document.getElementById('toggle-countdown').innerText === 'ON',
+            goalBar: document.getElementById('toggle-goalBar').innerText === 'ON',
+            roulette: document.getElementById('toggle-roulette').innerText === 'ON'
           }
        });
-       logEvent('[HB] Sync Pulse Sent', false, false, true);
+       logEvent('[HB] Sent overlay sync', false, false, true);
     }, 10000);
 
     // ─── Client-Side Timer Ticker ───
