@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const session = require('express-session');
+const session = require('cookie-session');
 const cookieParser = require('cookie-parser');
 const http = require('http');
 const { WebSocketServer } = require('ws');
@@ -14,17 +14,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
+// Trust proxy is required for secure cookies behind Vercel's load balancer
+app.set('trust proxy', 1);
+
 // Auth cookie config (from agent.md)
 const sessionMiddleware = session({
-  secret: process.env.SESSION_SECRET || 'dev-secret-string-replace-in-prod',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    httpOnly: true,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
-    sameSite: 'lax'
-  }
+  name: 'session',
+  keys: [process.env.SESSION_SECRET || 'dev-secret-string-replace-in-prod'],
+  secure: process.env.NODE_ENV === 'production',
+  httpOnly: true,
+  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  sameSite: 'lax'
 });
 app.use(sessionMiddleware);
 
