@@ -193,7 +193,6 @@
       box-shadow: 0 0 50px rgba(83,252,24,0.15);
       min-width: 320px;
     }
-    }
     #sync-indicator {
       position: fixed;
       bottom: 10px;
@@ -227,7 +226,7 @@
     let elementVisibility = { alertBox: true, countdown: true, goalBar: true, roulette: true };
     
     let timerRunning = false;
-    let currentTimerMs = 0;
+    let currentTimerMs = 3600000; // Default 1 hour
     let timerEndTime = null;
 
     let goalsList = [
@@ -266,6 +265,11 @@
       } catch (err) {
         console.error('Failed to init overlay:', err);
       }
+      
+      // Always force an initial render of all components regardless of state
+      renderCountdown(currentTimerMs);
+      renderCurrentGoal();
+      // Don't render roulette on init — only when prompted from dashboard
     }
 
     function applyInitialState(state) {
@@ -745,15 +749,12 @@
         <div class="result-text">${result}</div>
       `;
 
-      // After 1.5s of showing result, hide the wheel
+      // After 1.5s of showing result, hide wheel AND result popup
       setTimeout(() => {
         hideRouletteWheel();
-      }, 1500);
-
-      // Hide result popup after 6s
-      setTimeout(() => {
+        popup.className = 'overlay-element';
         popup.style.display = 'none';
-      }, 6000);
+      }, 1500);
     }
 
     // ─── Alerts ───

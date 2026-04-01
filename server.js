@@ -39,16 +39,24 @@ const supabase = require('./lib/supabase');
  * Broadcast a message to a Supabase Realtime channel.
  * This replaces the old WebSocket broadcast() function.
  * Channel name format: overlay:{userId}
+ * 
+ * IMPORTANT: We must send to the EXACT channel name that clients subscribe to.
+ * Previously used ephemeral channel names which meant clients never received messages.
  */
 async function broadcastRealtime(channelName, eventName, payload) {
   if (!supabase) return Promise.resolve();
+  
+  // Use a simple suffix to avoid channel name collision with client subscriptions
+  // but the channel NAME in the broadcast must match what clients listen on
+  const bcastChannel = supabase.channel(channelName, {
+    config: { broadcast: { self: false } }
+  });
+  
   return new Promise((resolve) => {
-    // Generate a unique client instance for this broadcast so we don't conflict with existing channels in a warm lambda
-    const channel = supabase.channel(channelName + '-bcast-' + Date.now() + Math.floor(Math.random()*1000));
-    channel.subscribe(async (status) => {
+    bcastChannel.subscribe(async (status) => {
       if (status === 'SUBSCRIBED') {
         try {
-          await channel.send({
+          await bcastChannel.send({
             type: 'broadcast',
             event: eventName,
             payload: payload
@@ -56,20 +64,23 @@ async function broadcastRealtime(channelName, eventName, payload) {
         } catch (e) {
           console.error('Realtime broadcast error:', e.message);
         } finally {
-          supabase.removeChannel(channel);
-          resolve();
+          // Small delay to ensure the message propagates before unsubscribing
+          setTimeout(() => {
+            supabase.removeChannel(bcastChannel);
+            resolve();
+          }, 100);
         }
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        supabase.removeChannel(channel);
+        supabase.removeChannel(bcastChannel);
         resolve();
       }
     });
 
     // Timeout safety
     setTimeout(() => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(bcastChannel);
       resolve();
-    }, 2000);
+    }, 3000);
   });
 }
 
