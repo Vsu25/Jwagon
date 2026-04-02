@@ -811,12 +811,25 @@
       <!-- ── CO-OP PANEL ── -->
       <div class="panel-section">
         <div class="panel-header">
-          <span class="panel-title">🤝 Co-op Session</span>
+          <span class="panel-title">🤝 Co-op Multiplayer</span>
+          <span id="coop-status-badge" class="panel-badge" style="background:var(--bg-lighter); color:var(--text-secondary);">Inactive</span>
         </div>
-        <input type="text" id="partner-input" placeholder="Partner Kick Username" style="flex:1;">
-          <button class="btn btn-accent btn-sm" onclick="sendAction('coop_start', {partner: document.getElementById('partner-input').value})">Link</button>
+        <div id="coop-inactive-view">
+           <input type="text" id="coop-partner-input" placeholder="Partner Kick Username" style="flex:1; width:100%; margin-bottom:8px; height:32px;">
+           <button class="btn btn-accent btn-sm" onclick="coopLink()" style="width:100%;">Invite & Link</button>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="sendAction('coop_stop')" style="width:100%; margin-top:8px;">Unlink Session</button>
+        <div id="coop-active-view" style="display:none;">
+           <div style="font-size:0.8rem; margin-bottom:12px; color:var(--text-primary);">Linked with: <strong id="coop-partner-name" style="color:var(--accent);">User</strong></div>
+           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+             <label style="font-size:0.75rem;">Share Timer</label>
+             <button id="coop-toggle-timer" class="btn btn-sm btn-accent" onclick="coopToggle('timer')">ON</button>
+           </div>
+           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+             <label style="font-size:0.75rem;">Share Goals</label>
+             <button id="coop-toggle-goals" class="btn btn-sm btn-accent" onclick="coopToggle('goals')">ON</button>
+           </div>
+           <button class="btn btn-danger btn-sm" onclick="coopLeave()" style="width:100%;">Disband Session</button>
+        </div>
       </div>
 
     </div>
@@ -1128,6 +1141,9 @@
         }, msg.data.duration + 500);
       } else if (msg.type === 'state:update') {
         // Don't log toggle/position state updates as they're noisy
+      } else if (msg.type === 'coop:update') {
+        if (typeof loadCoopStatus === 'function') loadCoopStatus();
+        logEvent('🤝 Co-op status synced');
       } else if (msg.type === 'coop:notification') {
         logEvent('🤝 ' + msg.data.message);
       }
@@ -1826,10 +1842,95 @@
       logEvent('✓ Positions applied to overlay');
     }
 
+    // ─── Co-Op API Integration ───
+    let coopStateData = { active: false, myPrefs: { shareCountdown: true, shareGoals: true } };
+
+    async function loadCoopStatus() {
+      try {
+        const res = await fetch('/api/coop/status');
+        const data = await res.json();
+        renderCoopUI(data);
+      } catch (e) {
+        if (typeof telemetry !== 'undefined') telemetry("Co-op load failed");
+      }
+    }
+
+    function renderCoopUI(data) {
+      if (data.error) return;
+      coopStateData = data;
+      const inactiveView = document.getElementById('coop-inactive-view');
+      const activeView = document.getElementById('coop-active-view');
+      const badge = document.getElementById('coop-status-badge');
+      
+      if (data.active) {
+        inactiveView.style.display = 'none';
+        activeView.style.display = 'block';
+        badge.textContent = 'Active';
+        badge.style.background = 'rgba(83,252,24,0.15)';
+        badge.style.color = '#53fc18';
+        
+        document.getElementById('coop-partner-name').textContent = data.partnerName;
+        
+        const btnT = document.getElementById('coop-toggle-timer');
+        btnT.textContent = data.myPrefs.shareCountdown ? 'ON' : 'OFF';
+        btnT.className = data.myPrefs.shareCountdown ? 'btn btn-sm btn-accent' : 'btn btn-sm btn-danger';
+        
+        const btnG = document.getElementById('coop-toggle-goals');
+        btnG.textContent = data.myPrefs.shareGoals ? 'ON' : 'OFF';
+        btnG.className = data.myPrefs.shareGoals ? 'btn btn-sm btn-accent' : 'btn btn-sm btn-danger';
+      } else {
+        inactiveView.style.display = 'block';
+        activeView.style.display = 'none';
+        badge.textContent = 'Inactive';
+        badge.style.background = 'var(--bg-lighter)';
+        badge.style.color = 'var(--text-secondary)';
+      }
+    }
+
+    async function coopLink() {
+      const partner = document.getElementById('coop-partner-input').value.trim();
+      if (!partner) return;
+      document.getElementById('coop-partner-input').value = '';
+      try {
+        const res = await fetch('/api/coop/create', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ partnerName: partner })
+        });
+        const data = await res.json();
+        if (data.error) alert(data.error);
+        else loadCoopStatus();
+      } catch(e) {}
+    }
+
+    async function coopLeave() {
+      if (!confirm("Are you sure you want to disband the co-op session?")) return;
+      try {
+        await fetch('/api/coop/leave', { method: 'POST' });
+        loadCoopStatus();
+      } catch(e) {}
+    }
+
+    async function coopToggle(type) {
+      if (!coopStateData.active || !coopStateData.myPrefs) return;
+      let { shareCountdown, shareGoals } = coopStateData.myPrefs;
+      
+      if (type === 'timer') shareCountdown = !shareCountdown;
+      if (type === 'goals') shareGoals = !shareGoals;
+      
+      try {
+        await fetch('/api/coop/toggle', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shareCountdown, shareGoals })
+        });
+        loadCoopStatus();
+      } catch(e) {}
+    }
+
     // ─── Boot ───
     window.onload = () => {
       init();
       initDrag();
+      loadCoopStatus();
     };
   </script>
 

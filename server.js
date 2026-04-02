@@ -238,6 +238,53 @@ app.post('/api/command', requireAuth, async (req, res) => {
   }
 });
 
+// ─── Co-Op Multiplayer API ───
+app.get('/api/coop/status', requireAuth, async (req, res) => {
+  try {
+    const coopSync = require('./lib/coopSync');
+    const status = await coopSync.getStatusForUser(req.session.userId);
+    res.json(status);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/coop/create', requireAuth, async (req, res) => {
+  const { partnerName } = req.body;
+  if (!partnerName) return res.status(400).json({ error: "Missing partnerName" });
+  try {
+    const coopSync = require('./lib/coopSync');
+    const result = await coopSync.establishCoop(req.session.userId, partnerName);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/coop/leave', requireAuth, async (req, res) => {
+  try {
+    const coopSync = require('./lib/coopSync');
+    const result = await coopSync.leaveCoop(req.session.userId);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/coop/toggle', requireAuth, async (req, res) => {
+  const { shareCountdown, shareGoals } = req.body;
+  if (typeof shareCountdown !== 'boolean' || typeof shareGoals !== 'boolean') {
+      return res.status(400).json({ error: "Invalid parameters" });
+  }
+  try {
+    const coopSync = require('./lib/coopSync');
+    const result = await coopSync.toggleSharing(req.session.userId, shareCountdown, shareGoals);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ─── State API (initial load for dashboard/overlay) ───
 app.get('/api/state/:userId', async (req, res) => {
   const userId = req.params.userId;
