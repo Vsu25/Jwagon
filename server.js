@@ -7,6 +7,9 @@ const path = require('path');
 
 const app = express();
 
+// Export app and broadcast early to solve circular dependency issues
+module.exports = app;
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -53,7 +56,9 @@ async function broadcastRealtime(channelName, eventName, payload) {
   });
   
   return new Promise((resolve) => {
+    let handled = false;
     bcastChannel.subscribe(async (status) => {
+      if (handled) return;
       if (status === 'SUBSCRIBED') {
         try {
           await bcastChannel.send({
@@ -64,6 +69,7 @@ async function broadcastRealtime(channelName, eventName, payload) {
         } catch (e) {
           console.error('Realtime broadcast error:', e.message);
         } finally {
+          handled = true;
           // Small delay to ensure the message propagates before unsubscribing
           setTimeout(() => {
             supabase.removeChannel(bcastChannel);
@@ -71,15 +77,18 @@ async function broadcastRealtime(channelName, eventName, payload) {
           }, 100);
         }
       } else if (status === 'CLOSED' || status === 'CHANNEL_ERROR') {
-        supabase.removeChannel(bcastChannel);
+        handled = true;
         resolve();
       }
     });
 
     // Timeout safety
     setTimeout(() => {
-      supabase.removeChannel(bcastChannel);
-      resolve();
+      if (!handled) {
+        handled = true;
+        supabase.removeChannel(bcastChannel);
+        resolve();
+      }
     }, 3000);
   });
 }
@@ -93,6 +102,8 @@ async function broadcast(messageObj, targetUserIds = null) {
   });
   await Promise.allSettled(promises);
 }
+
+module.exports.broadcast = broadcast;
 
 // ─── Gateway (Access Wall) ───
 app.get('/gate', (req, res) => {
@@ -268,6 +279,5 @@ if (require.main === module || !process.env.VERCEL) {
   });
 }
 
-// Export app for Vercel, and attach broadcast for internal lib usage
-module.exports = app;
-module.exports.broadcast = broadcast;
+// module.exports = app; // Already exported at the top
+// module.exports.broadcast = broadcast; // Already exported at the top

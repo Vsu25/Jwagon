@@ -1005,6 +1005,18 @@
 
     // ─── Supabase Realtime ───
     function applyInitialState(state) {
+      if (state.overlay && state.overlay.elements) {
+        Object.keys(state.overlay.elements).forEach(key => {
+          const el = document.getElementById('prev-' + key);
+          if (el && state.overlay.elements[key].position) {
+            const pos = state.overlay.elements[key].position;
+            el.style.left = pos.x + '%';
+            el.style.top = pos.y + '%';
+            el.style.right = 'auto';
+            el.style.transform = 'none';
+          }
+        });
+      }
       if (state.countdown) {
         timerRunning = state.countdown.running;
         currentTimerMs = state.countdown.currentMs || 3600000;
