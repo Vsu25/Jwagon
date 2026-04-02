@@ -351,11 +351,12 @@
           // Delay the spin slightly so the fade-in finishes
           setTimeout(() => {
             animateRouletteSpin(msg.data.targetAngle, msg.data.duration);
+            
+            // Show result locally after the spin duration finishes
+            setTimeout(() => {
+              if (msg.data.result) showRouletteResult(msg.data.result);
+            }, msg.data.duration + 500);
           }, 150);
-          break;
-        case 'roulette:result':
-          showRouletteResult(msg.data.result);
-          // hideRouletteWheel is handled inside showRouletteResult after 1.5s
           break;
         case 'state_sync_heartbeat':
           // The source of truth has arrived!

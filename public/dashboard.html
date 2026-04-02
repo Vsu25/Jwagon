@@ -1048,6 +1048,27 @@
         handleRealtimeEvent({ type: payload.event, data: payload.payload });
       });
 
+      realtimeChannel.subscribe(async (status) => {
+        const dot = document.getElementById('conn-status');
+        if (status === 'SUBSCRIBED') {
+          dot.style.background = '#53FC18';
+          dot.style.boxShadow = '0 0 10px #53FC18';
+        } else {
+          dot.style.background = 'red';
+          dot.style.boxShadow = '0 0 10px red';
+        }
+      });
+      
+      if (!window.dashboardTicker) {
+        window.dashboardTicker = setInterval(() => {
+          if (timerRunning && timerEndTime) {
+            currentTimerMs = Math.max(0, timerEndTime - Date.now());
+            renderTimerDisplay();
+          }
+        }, 100);
+      }
+    }
+
       realtimeChannel.subscribe((status) => {
         if (status === 'SUBSCRIBED') {
           console.log('Realtime connected to', channelName);
@@ -1097,12 +1118,14 @@
           renderGoalsSummary();
           if (typeof showAllGoals !== 'undefined' && showAllGoals) renderAllGoalsList();
         }
-      } else if (msg.type === 'roulette:result') {
-        showRouletteResult(msg.data.result);
-        isSpinning = false;
-        document.getElementById('spin-btn').disabled = false;
       } else if (msg.type === 'roulette:spin') {
         animateWheelSpin(msg.data.targetAngle, msg.data.duration);
+        setTimeout(() => {
+          showRouletteResult(msg.data.result);
+          isSpinning = false;
+          const spinBtn = document.getElementById('spin-btn');
+          if (spinBtn) spinBtn.disabled = false;
+        }, msg.data.duration + 500);
       } else if (msg.type === 'state:update') {
         // Don't log toggle/position state updates as they're noisy
       } else if (msg.type === 'coop:notification') {

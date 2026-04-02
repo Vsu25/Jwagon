@@ -9,6 +9,7 @@ const app = express();
 
 // Export app and broadcast early to solve circular dependency issues
 module.exports = app;
+module.exports.broadcast = broadcast; // Hoisted function declaration
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
